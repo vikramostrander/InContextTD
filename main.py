@@ -128,14 +128,9 @@ if __name__ == '__main__':
     is_linear = args.activation == 'identity'
     use_mamba = args.use_mamba
 
-    if use_mamba:
-        Parallel(n_jobs=4)(
-            delayed(run_training_for_seed)(seed, base_train_args, is_linear, use_mamba) for seed in args.seed
-        )
-    else:
-        Parallel(n_jobs=-1)(
-            delayed(run_training_for_seed)(seed, base_train_args, is_linear, use_mamba) for seed in args.seed
-        )
+    Parallel(n_jobs=-1)(
+        delayed(run_training_for_seed)(seed, base_train_args, is_linear, use_mamba) for seed in args.seed
+    )
 
     data_dirs = []
     for seed in args.seed:
