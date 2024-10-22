@@ -40,20 +40,6 @@ def solve_msve_weight(steady_dist: np.ndarray,
     return np.linalg.inv(X.T @ D @ X) @ X.T @ D @ v
 
 
-def compute_msve(v_hat: np.ndarray,
-                 v: np.ndarray,
-                 steady_dist: np.ndarray) -> float:
-    '''
-    v_hat: predicted value
-    v: true value
-    steady_dist: steady state distribution
-    returns MSVE
-    '''
-    error = v - v_hat
-    msve = steady_dist.dot(error**2)
-    return msve.item()
-
-
 def set_seed(seed: int):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -107,55 +93,3 @@ def cos_sim(v1: Union[torch.Tensor, np.ndarray],
     v1 = v1.flatten()
     v2 = v2.flatten()
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-
-def compare_sensitivity(tf,
-                        tf_hard,
-                        prompt):
-    '''
-    computes the expected cosine similarity and l2 norm 
-    between the transformers' gradients w.r.t query
-    '''
-    prompt = prompt.copy()
-    Phi: torch.Tensor = prompt.get_feature_mat()
-    steady_d: np.ndarray = prompt.mrp.steady_d
-    mean_cos_sim = 0.0
-    mean_l2_dist = 0.0
-    for s, feature in enumerate(Phi):
-        prompt.set_query(feature)
-        prompt.enable_query_grad()
-
-        tf_v = tf.pred_v(prompt.z().to('cuda'))
-        tf_v.backward()
-        tf_grad = prompt.query_grad().cpu().numpy()         # TODO: refactor this to train.py
-        prompt.zero_query_grad()
-
-        tf_v_hard = tf_hard.pred_v(prompt.z())
-        tf_v_hard.backward()
-        tf_grad_hard = prompt.query_grad().numpy()
-        prompt.disable_query_grad()
-
-        mean_cos_sim += steady_d[s]*cos_sim(tf_grad, tf_grad_hard)
-    return mean_cos_sim
-
-
-def implicit_weight_sim(v_tf: np.ndarray,
-                        tf_hard,
-                        prompt):
-    '''
-    computes the cosine similarity and l2 distance
-    between the batch TD weight (with the fitted learning rate) 
-    and the weight of the best linear model that explaines v_tf
-    '''
-    prompt = prompt.copy()
-    steady_d = prompt.mrp.steady_d
-    Phi = prompt.get_feature_mat().numpy()
-    w_tf = solve_msve_weight(steady_d, Phi, v_tf).flatten()
-    prompt.enable_query_grad()
-    v_td = tf_hard.pred_v(prompt.z())
-    v_td.backward()
-    w_td = prompt.query_grad().numpy().flatten()
-    prompt.zero_query_grad()
-    prompt.disable_query_grad()
-
-    return cos_sim(w_tf, w_td)

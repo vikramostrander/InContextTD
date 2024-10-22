@@ -189,11 +189,9 @@ class HardLinearTransformer(nn.Module):
 
 class MambaSSM(nn.Module):
     def __init__(self,
-                 d: int,
-                 device: torch.device):
+                 d: int):
         super(MambaSSM, self).__init__()
         self.d = d
-        self.device = device
         self.model = Mamba(d_model=2*d+1, d_state=16, d_conv=4, expand=2)
 
     def forward(self, Z):
@@ -209,12 +207,9 @@ class MambaSSM(nn.Module):
                        phi: torch.Tensor):
         v_vec = []
         for feature in phi:
-            feature_col = torch.zeros((2 * self.d + 1, 1)).to(self.device)
+            feature_col = torch.zeros((2 * self.d + 1, 1), device=phi.get_device())
             feature_col[:self.d, 0] = feature
-            # print(context.get_device())
-            # print(feature_col.get_device())
             Z_p = torch.cat([context, feature_col], dim=1)
-            # print(Z_p.get_device())
             v = self.pred_v(Z_p)
             v_vec.append(v)
         mamba_v = torch.stack(v_vec, dim=0).unsqueeze(1)

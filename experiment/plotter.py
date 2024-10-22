@@ -37,7 +37,7 @@ def process_log(log: dict) -> Tuple[np.ndarray, dict, dict]:
     error_log = {}
     for key in ('implicit_weight_sim',
                 'sensitivity cos sim',
-                'v_tf v_td msve'):
+                'v_model v_td msve'):
         if key in log:
             error_log[key] = np.expand_dims(log[key], axis=0)
 
@@ -126,15 +126,15 @@ def plot_error_data(data_dirs: str,
     num_seeds = batched_error_log['implicit_weight_sim'].shape[0]
 
     # Value function similarity
-    metrics = ['v_tf v_td msve', 'implicit_weight_sim', 'sensitivity cos sim']
+    metrics = ['v_model v_td msve', 'implicit_weight_sim', 'sensitivity cos sim']
     means, stdes = {}, {}
     
     for metric in metrics:
         means[metric] = np.mean(batched_error_log[metric], axis=0)
         stdes[metric] = np.std(batched_error_log[metric], axis=0) / np.sqrt(num_seeds)
     
-    mean_vf_sim = means['v_tf v_td msve']
-    stde_vf_sim = stdes['v_tf v_td msve']
+    mean_vf_sim = means['v_model v_td msve']
+    stde_vf_sim = stdes['v_model v_td msve']
     mean_iws = means['implicit_weight_sim']
     stde_iws = stdes['implicit_weight_sim']
     mean_sensitivity_cos_sim = means['sensitivity cos sim']
@@ -142,7 +142,7 @@ def plot_error_data(data_dirs: str,
 
     #plt.figure()
     fig, ax1 = plt.subplots()
-    plt.title("Learned TF and Batch TD Comparison")
+    plt.title("Learned Model and Batch TD Comparison")
     ax1.set_xlabel('# MRPs')
     ax1.set_ylabel('Cosine Similarity')
     ax1.set_ylim(0, 1.1)

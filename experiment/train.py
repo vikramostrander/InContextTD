@@ -10,18 +10,17 @@ from tqdm import tqdm
 from experiment.model import HardLinearTransformer, Transformer, MambaSSM
 from experiment.prompt import MRPPromptGenerator
 from MRP.mrp import MRP
-from utils import (compare_sensitivity, compute_msve, implicit_weight_sim,
-                   set_seed)
+from utils import (cos_sim, solve_msve_weight, set_seed)
 
 
 def _init_log() -> dict:
     log = {'xs': [],
            'alpha': [],
-           'v_tf v_td msve': [],
+           'v_model v_td msve': [],
            'implicit_weight_sim': [],
            'sensitivity cos sim': [],
            'P': [],
-           'Q': []}
+           'Q': []}     #TODO: generalize labels for mamba parameters
     return log
 
 
@@ -41,6 +40,73 @@ def _save_log(log: dict, save_dir: str) -> None:
     for key, value in log.items():
         log[key] = np.array(value)
     np.savez(os.path.join(save_dir, 'data.npz'), **log)
+
+
+def compute_msve(v_hat: np.ndarray,
+                 v: np.ndarray,
+                 steady_dist: np.ndarray) -> float:
+    '''
+    v_hat: predicted value
+    v: true value
+    steady_dist: steady state distribution
+    returns MSVE
+    '''
+    error = v - v_hat
+    msve = steady_dist.dot(error**2)
+    return msve.item()
+
+
+def compare_sensitivity(model,
+                        batch_td,
+                        prompt,
+                        device):
+    '''
+    computes the expected cosine similarity and l2 norm
+    between the models' gradients w.r.t query
+    '''
+    prompt = prompt.copy()
+    Phi: torch.Tensor = prompt.get_feature_mat()
+    steady_d: np.ndarray = prompt.mrp.steady_d
+    mean_cos_sim = 0.0
+    mean_l2_dist = 0.0
+    for s, feature in enumerate(Phi):
+        prompt.set_query(feature)
+        prompt.enable_query_grad()
+
+        model_v = model.pred_v(prompt.z().to(device))
+        model_v.backward()
+        model_grad = prompt.query_grad().cpu().numpy()
+        prompt.zero_query_grad()
+
+        td_v = batch_td.pred_v(prompt.z())
+        td_v.backward()
+        td_grad = prompt.query_grad().numpy()
+        prompt.disable_query_grad()
+
+        mean_cos_sim += steady_d[s]*cos_sim(model_grad, td_grad)
+    return mean_cos_sim
+
+
+def implicit_weight_sim(v_model: np.ndarray,
+                        batch_td,
+                        prompt):
+    '''
+    computes the cosine similarity and l2 distance
+    between the batch TD weight (with the fitted learning rate) 
+    and the weight of the best linear model that explaines v_model
+    '''
+    prompt = prompt.copy()
+    steady_d = prompt.mrp.steady_d
+    Phi = prompt.get_feature_mat().numpy()
+    w_model = solve_msve_weight(steady_d, Phi, v_model).flatten()
+    prompt.enable_query_grad()
+    v_td = batch_td.pred_v(prompt.z())
+    v_td.backward()
+    w_td = prompt.query_grad().numpy().flatten()
+    prompt.zero_query_grad()
+    prompt.disable_query_grad()
+
+    return cos_sim(w_model, w_td)
 
 
 def train(d: int,
@@ -84,8 +150,11 @@ def train(d: int,
     set_seed(random_seed)
 
     if use_mamba:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = MambaSSM(d, device).to(device)
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+            model = MambaSSM(d).to(device)
+        else:
+            raise Exception("error: cuda not found")
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)
@@ -147,10 +216,10 @@ def train(d: int,
             log['alpha'].append(batch_td.attn.alpha.item())
 
             # Value Difference (VD)
-            log['v_tf v_td msve'].append(compute_msve(v_model, v_td, steady_d))     # TODO: fix logging labels
+            log['v_model v_td msve'].append(compute_msve(v_model, v_td, steady_d))
 
             # Sensitivity Similarity (SS)
-            sens_cos_sim = compare_sensitivity(model, batch_td, prompt)
+            sens_cos_sim = compare_sensitivity(model, batch_td, prompt, device)
             log['sensitivity cos sim'].append(sens_cos_sim)
 
             # Implicit Weight Similarity (IWS)
