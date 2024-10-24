@@ -8,8 +8,12 @@ from experiment.plotter import (plot_attn_params, plot_error_data,
                                 plot_weight_metrics)
 from experiment.train import train
 
+# TODO:
+#       mamba/tf labels
+#       generate non representable
+#       generate s4 model
 
-def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, use_mamba: bool):
+def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, model_name: str):
     data_dir = os.path.join(train_args['save_dir'], f'seed_{seed}')
     train_args['save_dir'] = data_dir
     train_args['random_seed'] = seed
@@ -21,12 +25,9 @@ def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, use
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
 
-    plot_error_data([data_dir], figure_dir)
+    plot_error_data([data_dir], figure_dir, model_name)
 
-    if use_mamba:
-        # TODO: mamba parameter plotting
-        pass
-    else:
+    if model_name == 'tf':
         plot_attn_params([data_dir], figure_dir)
         if is_linear:
             # the weight metrics are only sensible for linear transformers
@@ -74,7 +75,8 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='print training details')
-    parser.add_argument('--use_mamba', action='store_true')
+    parser.add_argument('--model', type=str, 
+                        help='model to be trained: tf, mamba, s4', default='tf', choices=['tf', 'mamba', 's4'])
 
     args: Namespace = parser.parse_args()
     if args.save_dir:
@@ -102,7 +104,7 @@ if __name__ == '__main__':
         n_batch_per_mrp=args.n_batch_per_mrp,
         log_interval=args.log_interval,
         save_dir=save_dir,
-        use_mamba=args.use_mamba
+        model_name=args.model
     )
 
     if args.verbose:
@@ -126,10 +128,10 @@ if __name__ == '__main__':
         print(f'Random seeds: {",".join(map(str, args.seed))}')
 
     is_linear = args.activation == 'identity'
-    use_mamba = args.use_mamba
+    model_name = args.model
 
     Parallel(n_jobs=-1)(
-        delayed(run_training_for_seed)(seed, base_train_args, is_linear, use_mamba) for seed in args.seed
+        delayed(run_training_for_seed)(seed, base_train_args, is_linear, model_name) for seed in args.seed
     )
 
     data_dirs = []
@@ -142,12 +144,9 @@ if __name__ == '__main__':
     if not os.path.exists(average_figures_dir):
         os.makedirs(average_figures_dir)
 
-    plot_error_data(data_dirs, average_figures_dir)
+    plot_error_data(data_dirs, average_figures_dir, model_name)
 
-    if use_mamba:
-        # TODO: mamba parameter plotting
-        pass
-    else:
+    if model_name == 'tf':
         plot_attn_params(data_dirs, average_figures_dir)
         if is_linear:
             plot_weight_metrics(data_dirs, average_figures_dir)

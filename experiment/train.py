@@ -20,7 +20,7 @@ def _init_log() -> dict:
            'implicit_weight_sim': [],
            'sensitivity cos sim': [],
            'P': [],
-           'Q': []}     #TODO: generalize labels for mamba parameters
+           'Q': []}
     return log
 
 
@@ -125,7 +125,7 @@ def train(d: int,
           log_interval: int = 10,
           save_dir: str = None,
           random_seed: int = 2,
-          use_mamba: bool = False):
+          model_name: str = 'tf'):
     '''
     d: feature dimension
     s: number of states
@@ -149,12 +149,19 @@ def train(d: int,
 
     set_seed(random_seed)
 
-    if use_mamba:
+    if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
             model = MambaSSM(d).to(device)
         else:
             raise Exception("error: cuda not found")
+    elif model_name == 's4':
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+            # TODO: s4 impl
+        else:
+            device = torch.device('cpu')
+            # TODO: s4 impl
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)
@@ -226,10 +233,7 @@ def train(d: int,
             iws = implicit_weight_sim(v_model, batch_td, prompt)
             log['implicit_weight_sim'].append(iws)
 
-            if use_mamba:
-                # TODO: implement logging for mamba parameters
-                pass
-            else:
+            if model_name == 'tf':
                 if mode == 'auto':
                     log['P'].append([model.attn.P.detach().numpy().copy()])
                     log['Q'].append([model.attn.Q.detach().numpy().copy()])

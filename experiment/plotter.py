@@ -106,12 +106,14 @@ def plot_attn_params(data_dirs: List[str],
         plt.close(fig)
 
 def plot_error_data(data_dirs: str,
-                    save_dir: str) -> None:
+                    save_dir: str,
+                    model_name: str) -> None:
     '''
     plot the error data from validation
     xs: x-axis values
     error_log: dictionary containing the error data
     save_dir: directory to save the plots
+    model_name: name of the trained model
     '''
     
     error_log_lst = []
@@ -142,7 +144,8 @@ def plot_error_data(data_dirs: str,
 
     #plt.figure()
     fig, ax1 = plt.subplots()
-    plt.title("Learned Model and Batch TD Comparison")
+    model_label = {'tf': 'TF', 'mamba': 'Mamba', 's4': 'S4'}
+    plt.title(f"Learned {model_label[model_name]} and Batch TD Comparison")
     ax1.set_xlabel('# MRPs')
     ax1.set_ylabel('Cosine Similarity')
     ax1.set_ylim(0, 1.1)
