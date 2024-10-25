@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 
-from experiment.model import HardLinearTransformer, Transformer, MambaSSM
+from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM
 from experiment.prompt import MRPPromptGenerator
 from MRP.mrp import MRP
 from utils import (cos_sim, solve_msve_weight, set_seed)
@@ -152,16 +152,12 @@ def train(d: int,
     if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            model = MambaSSM(d).to(device)
+            model = MambaSSM(d, l).to(device)
         else:
             raise Exception("error: cuda not found")
     elif model_name == 's4':
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-            # TODO: s4 impl
-        else:
-            device = torch.device('cpu')
-            # TODO: s4 impl
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model = S4SSM(d, l).to(device)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)

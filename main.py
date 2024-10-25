@@ -8,10 +8,6 @@ from experiment.plotter import (plot_attn_params, plot_error_data,
                                 plot_weight_metrics)
 from experiment.train import train
 
-# TODO:
-#       mamba/tf labels
-#       generate non representable
-#       generate s4 model
 
 def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, model_name: str):
     data_dir = os.path.join(train_args['save_dir'], f'seed_{seed}')

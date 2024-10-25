@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from mamba_ssm import Mamba
+from experiment.s4.s4 import S4Block
 
 from utils import stack_four
 
@@ -189,15 +190,18 @@ class HardLinearTransformer(nn.Module):
 
 class MambaSSM(nn.Module):
     def __init__(self,
-                 d: int):
+                 d: int,
+                 l: int):
         super(MambaSSM, self).__init__()
         self.d = d
-        self.model = Mamba(d_model=2*d+1, d_state=16, d_conv=4, expand=2)
+        self.l = l
+        self.layers = nn.ModuleList([Mamba(d_model=2*d+1, layer_idx=i) for i in range(l)])
 
     def forward(self, Z):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
-        Z = self.model(Z)
+        for mamba in self.layers:
+            Z = mamba.forward(Z)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -218,6 +222,43 @@ class MambaSSM(nn.Module):
     def pred_v(self, Z):
         Z_mamba = self.forward(Z.clone())
         return Z_mamba[-1, -1]
+
+
+class S4SSM(nn.Module):
+    def __init__(self,
+                 d: int,
+                 l: int):
+        super(S4SSM, self).__init__()
+        self.d = d
+        self.l = l
+        self.layers = nn.ModuleList([S4Block(d_model=2*d+1) for i in range(l)])
+
+    def forward(self, Z):
+        Z.transpose_(0, 1)
+        Z.unsqueeze_(0)
+        for s4block in self.layers:
+            Z = s4block.forward(Z)
+        Z = self.model.forward(Z)
+        Z.squeeze_(0)
+        Z.transpose_(0, 1)
+        return Z
+    
+    def fit_value_func(self,
+                       context: torch.Tensor,
+                       phi: torch.Tensor):
+        v_vec = []
+        for feature in phi:
+            feature_col = torch.zeros((2 * self.d + 1, 1), device=phi.get_device())
+            feature_col[:self.d, 0] = feature
+            Z_p = torch.cat([context, feature_col], dim=1)
+            v = self.pred_v(Z_p)
+            v_vec.append(v)
+        s4_v = torch.stack(v_vec, dim=0).unsqueeze(1)
+        return s4_v
+    
+    def pred_v(self, Z):
+        Z_s4 = self.forward(Z.clone())
+        return Z_s4[-1][-1]
 
 
 def get_activation(activation: str) -> nn.Module:
