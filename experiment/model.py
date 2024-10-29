@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 
+from functools import partial
 from mamba_ssm import Mamba
-from experiment.s4.s4 import S4Block
+from mamba_ssm.modules.block import Block
+
+from experiment.s4 import S4Block
 
 from utils import stack_four
 
@@ -195,13 +198,20 @@ class MambaSSM(nn.Module):
         super(MambaSSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([Mamba(d_model=2*d+1, layer_idx=i) for i in range(l)])
+        self.layers = nn.ModuleList([Block(
+            2*d+1, 
+            partial(Mamba, layer_idx=i), 
+            nn.Identity,
+            ) for i in range(l)])
+        self.norm_f = nn.LayerNorm(2*d+1)
 
     def forward(self, Z):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
+        residual = None
         for mamba in self.layers:
-            Z = mamba.forward(Z)
+            Z, residual = mamba(Z, residual)
+        Z = self.norm_f((Z + residual) if residual is not None else Z)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -234,13 +244,10 @@ class S4SSM(nn.Module):
         self.layers = nn.ModuleList([S4Block(d_model=2*d+1) for i in range(l)])
 
     def forward(self, Z):
-        Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         for s4block in self.layers:
-            Z = s4block.forward(Z)
-        Z = self.model.forward(Z)
+            Z, _ = s4block(Z)
         Z.squeeze_(0)
-        Z.transpose_(0, 1)
         return Z
     
     def fit_value_func(self,
