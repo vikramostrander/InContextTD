@@ -5,7 +5,7 @@ from functools import partial
 from mamba_ssm import Mamba
 from mamba_ssm.modules.block import Block
 
-from experiment.s4 import S4Block
+from s4.src.models.sequence.modules.s4block import S4Block
 
 from utils import stack_four
 
@@ -209,8 +209,8 @@ class MambaSSM(nn.Module):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         residual = None
-        for mamba in self.layers:
-            Z, residual = mamba(Z, residual)
+        for layer in self.layers:
+            Z, residual = layer(Z, residual)
         Z = self.norm_f((Z + residual) if residual is not None else Z)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
@@ -241,12 +241,16 @@ class S4SSM(nn.Module):
         super(S4SSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([S4Block(d_model=2*d+1) for i in range(l)])
+        self.layers = nn.ModuleList([S4Block(2*d+1) for _ in range(l)])
+        self.norms = nn.ModuleList([nn.LayerNorm(2*d+1) for _ in range(l)])
 
     def forward(self, Z):
         Z.unsqueeze_(0)
-        for s4block in self.layers:
-            Z, _ = s4block(Z)
+        for layer, norm in zip(self.layers, self.norms):
+            residual = Z
+            Z, _ = layer(Z)
+            Z = Z + residual
+            Z = norm(Z.transpose(-1, -2)).transpose(-1, -2)
         Z.squeeze_(0)
         return Z
     
