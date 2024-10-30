@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 
-from functools import partial
 from mamba_ssm import Mamba
-from mamba_ssm.modules.block import Block
+from mamba_ssm.modules.block import Block as MambaBlock
 
-from s4.src.models.sequence.modules.s4block import S4Block
+import sys
+sys.path.append('s4')
+from src.models.sequence.backbones.block import SequenceResidualBlock as S4Block
+sys.path.remove('s4')
 
 from utils import stack_four
 
@@ -198,12 +200,11 @@ class MambaSSM(nn.Module):
         super(MambaSSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([Block(
+        self.layers = nn.ModuleList([MambaBlock(
             2*d+1, 
-            partial(Mamba, layer_idx=i), 
+            Mamba, 
             nn.Identity,
-            ) for i in range(l)])
-        self.norm_f = nn.LayerNorm(2*d+1)
+        ) for _ in range(l)])
 
     def forward(self, Z):
         Z.transpose_(0, 1)
@@ -211,7 +212,7 @@ class MambaSSM(nn.Module):
         residual = None
         for layer in self.layers:
             Z, residual = layer(Z, residual)
-        Z = self.norm_f((Z + residual) if residual is not None else Z)
+        Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -241,16 +242,19 @@ class S4SSM(nn.Module):
         super(S4SSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([S4Block(2*d+1) for _ in range(l)])
-        self.norms = nn.ModuleList([nn.LayerNorm(2*d+1) for _ in range(l)])
+        self.layers = nn.ModuleList([S4Block(
+            2*d+1,
+            layer='s4',
+            residual='residual',
+            norm='layer',
+            transposed=True,
+        ) for _ in range(l)])
 
     def forward(self, Z):
         Z.unsqueeze_(0)
-        for layer, norm in zip(self.layers, self.norms):
-            residual = Z
-            Z, _ = layer(Z)
-            Z = Z + residual
-            Z = norm(Z.transpose(-1, -2)).transpose(-1, -2)
+        state = None
+        for layer in self.layers:
+            Z, state = layer(Z, state)
         Z.squeeze_(0)
         return Z
     
