@@ -196,22 +196,31 @@ class HardLinearTransformer(nn.Module):
 class MambaSSM(nn.Module):
     def __init__(self,
                  d: int,
-                 l: int):
+                 l: int,
+                 mode='mode'):
         super(MambaSSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([MambaBlock(
-            2*d+1, 
-            Mamba, 
-            nn.Identity,
-        ) for _ in range(l)])
+        self.mode = mode
+        if mode == 'auto':
+            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
+        elif mode == 'sequential':
+            self.layers = nn.ModuleList([
+                MambaBlock(2*d+1, Mamba, nn.Identity)
+            for _ in range(l)])
+        else:
+            raise ValueError('mode must be either auto or sequential')
 
     def forward(self, Z):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         residual = None
-        for layer in self.layers:
-            Z, residual = layer(Z, residual)
+        if self.mode == 'auto':
+            for _ in range(self.l):
+                Z, residual = self.layer(Z, residual)
+        else:
+            for layer in self.layers:
+                Z, residual = layer(Z, residual)
         Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
@@ -238,23 +247,31 @@ class MambaSSM(nn.Module):
 class S4SSM(nn.Module):
     def __init__(self,
                  d: int,
-                 l: int):
+                 l: int,
+                 mode='auto'):
         super(S4SSM, self).__init__()
         self.d = d
         self.l = l
-        self.layers = nn.ModuleList([S4Block(
-            2*d+1,
-            layer='s4',
-            residual='residual',
-            norm='layer',
-            transposed=True,
-        ) for _ in range(l)])
+        self.mode = mode
+        if mode == 'auto':
+            self.layer = S4Block(2*d+1, layer='s4', residual='residual', norm='layer', 
+                                 transposed=True)
+        elif mode == 'sequential':
+            self.layers = nn.ModuleList([
+                S4Block(2*d+1, layer='s4', residual='residual', norm='layer', 
+                        transposed=True)
+            for _ in range(l)])
+        else:
+            raise ValueError('mode must be either auto or sequential')
 
     def forward(self, Z):
         Z.unsqueeze_(0)
-        state = None
-        for layer in self.layers:
-            Z, state = layer(Z, state)
+        if self.mode == 'auto':
+            for _ in range(self.l):
+                Z, _ = self.layer(Z)
+        else:
+            for layer in self.layers:
+                Z, _ = layer(Z)
         Z.squeeze_(0)
         return Z
     

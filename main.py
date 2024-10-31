@@ -37,17 +37,17 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--num_states', type=int,
                         help='number of states', default=10)
     parser.add_argument('-n', '--context_length', type=int,
-                        help='context length', default=30)
+                        help='context length for transformer', default=30)
     parser.add_argument('-l', '--num_layers', type=int,
                         help='number of layers', default=3)
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
     parser.add_argument('--activation', type=str,
-                        help='activation function for the transformer', default='identity')
+                        help='activation function for transformer', default='identity')
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
-                        help='total number of MRPs for training ', default=4_000)
+                        help='total number of MRPs for training', default=4_000)
     parser.add_argument('--batch_size', type=int,
                         help='mini batch size', default=64)
     parser.add_argument('--n_batch_per_mrp', type=int,
