@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 
-from mamba_ssm import Mamba
-from mamba_ssm.modules.block import Block as MambaBlock
-
 import sys
+
+sys.path.append('mamba')
+from mamba_ssm.modules.mamba_simple import Mamba
+from mamba_ssm.modules.block import Block as MambaBlock
+sys.path.remove('mamba')
+
 sys.path.append('s4')
 from src.models.sequence.backbones.block import SequenceResidualBlock as S4Block
 sys.path.remove('s4')
