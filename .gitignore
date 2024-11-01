@@ -162,7 +162,3 @@ cython_debug/
 logs
 *.drawio
 .DS_Store
-
-# Scripts
-experiment.sh
-slurm-*
