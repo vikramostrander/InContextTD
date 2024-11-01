@@ -200,7 +200,7 @@ class MambaSSM(nn.Module):
     def __init__(self,
                  d: int,
                  l: int,
-                 mode='mode'):
+                 mode='auto'):
         super(MambaSSM, self).__init__()
         self.d = d
         self.l = l
