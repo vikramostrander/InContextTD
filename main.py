@@ -73,6 +73,8 @@ if __name__ == '__main__':
                         help='print training details')
     parser.add_argument('--model', type=str, 
                         help='model to be trained: tf, mamba, s4', default='tf', choices=['tf', 'mamba', 's4'])
+    parser.add_argument('--disable_parallel', action='store_true',
+                        help='disable multiprocessing')
 
     args: Namespace = parser.parse_args()
     if args.save_dir:
@@ -126,9 +128,12 @@ if __name__ == '__main__':
     is_linear = args.activation == 'identity'
     model_name = args.model
 
-    Parallel(n_jobs=-1)(
-        delayed(run_training_for_seed)(seed, base_train_args, is_linear, model_name) for seed in args.seed
-    )
+    if args.disable_parallel:
+        for seed in args.seed: run_training_for_seed(seed, base_train_args, is_linear, model_name)
+    else:
+        Parallel(n_jobs=-1)(
+            delayed(run_training_for_seed)(seed, base_train_args, is_linear, model_name) for seed in args.seed
+        )
 
     data_dirs = []
     for seed in args.seed:
