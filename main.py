@@ -73,6 +73,8 @@ if __name__ == '__main__':
                         help='print training details')
     parser.add_argument('--model', type=str, 
                         help='model to be trained: tf, mamba, s4', default='tf', choices=['tf', 'mamba', 's4'])
+    parser.add_argument('--env', type=str,
+                        help='environment for experiment: boyan, cartpole, mujoco', default='boyan', choices=['boyan', 'cartpole', 'mujoco'])
     parser.add_argument('--no_parallel', action='store_true',
                         help='disable multiprocessing')
 
@@ -85,6 +87,13 @@ if __name__ == '__main__':
                                 start_time.strftime("%Y-%m-%d-%H-%M-%S"))
     if args.suffix:
         save_dir = os.path.join(save_dir, args.suffix)
+
+    if args.env == 'cartpole':
+        args.dim_feature = 4
+        args.num_states = -1
+    if args.env == 'mujoco':
+        args.dim_feature = 11
+        args.num_states = -1
 
     base_train_args = dict(
         d=args.dim_feature,
@@ -102,7 +111,8 @@ if __name__ == '__main__':
         n_batch_per_mrp=args.n_batch_per_mrp,
         log_interval=args.log_interval,
         save_dir=save_dir,
-        model_name=args.model
+        model_name=args.model,
+        env_name=args.env
     )
 
     if args.verbose:

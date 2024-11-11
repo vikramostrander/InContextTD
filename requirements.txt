@@ -30,3 +30,4 @@ tqdm==4.66.5
 typing_extensions==4.12.2
 tzdata==2024.2
 mamba_ssm==2.2.2
+gymnasium==1.0.0

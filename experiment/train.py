@@ -125,7 +125,8 @@ def train(d: int,
           log_interval: int = 10,
           save_dir: str = None,
           random_seed: int = 2,
-          model_name: str = 'tf'):
+          model_name: str = 'tf',
+          env_name: str = 'boyan'):
     '''
     d: feature dimension
     s: number of states
@@ -170,7 +171,7 @@ def train(d: int,
                           lr=lr, weight_decay=weight_decay)
     log = _init_log()
 
-    pro_gen = MRPPromptGenerator(s, d, n, gamma)
+    pro_gen = MRPPromptGenerator(s, d, n, gamma, env_name)
 
     ### Training Loop ###
     for i in tqdm(range(1, n_mrps+1)):
