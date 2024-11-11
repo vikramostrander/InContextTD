@@ -211,6 +211,8 @@ class MambaSSM(nn.Module):
             self.layers = nn.ModuleList([
                 MambaBlock(2*d+1, Mamba, nn.Identity)
             for _ in range(l)])
+        elif mode == 'standalone':
+            self.layer = Mamba(2*d+1)
         else:
             raise ValueError('mode must be either auto or sequential')
 
@@ -221,10 +223,13 @@ class MambaSSM(nn.Module):
         if self.mode == 'auto':
             for _ in range(self.l):
                 Z, residual = self.layer(Z, residual)
-        else:
+            Z = (Z + residual) if residual is not None else Z
+        elif self.mode == 'sequential':
             for layer in self.layers:
                 Z, residual = layer(Z, residual)
-        Z = (Z + residual) if residual is not None else Z
+            Z = (Z + residual) if residual is not None else Z
+        else:
+            Z = self.layer(Z)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -264,6 +269,9 @@ class S4SSM(nn.Module):
                 S4Block(2*d+1, layer='s4', residual='residual', norm='layer', 
                         transposed=True)
             for _ in range(l)])
+        elif mode == 'standalone':
+            self.layer = S4Block(2*d+1, layer='s4', residual=None, norm=None,
+                                 transposed=True)
         else:
             raise ValueError('mode must be either auto or sequential')
 
@@ -272,9 +280,11 @@ class S4SSM(nn.Module):
         if self.mode == 'auto':
             for _ in range(self.l):
                 Z, _ = self.layer(Z)
-        else:
+        elif self.mode == 'sequential':
             for layer in self.layers:
                 Z, _ = layer(Z)
+        else:
+            Z = self.layer(Z)
         Z.squeeze_(0)
         return Z
     
