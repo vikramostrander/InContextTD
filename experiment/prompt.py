@@ -5,10 +5,10 @@ import torch
 
 from MRP.boyan import BoyanChain
 from MRP.loop import Loop
+from MRP.gyms import FrozenLake
 from MRP.mrp import MRP
 from typing import Tuple
 
-import gymnasium as gym
 
 class Feature:
     def __init__(self, d: int, s: int, mode: str = 'random'):
@@ -148,124 +148,6 @@ class MRPPrompt:
         mrp_prompt.s = self.s
         mrp_prompt._store_data()
         return mrp_prompt
-    
-# ISSUES:
-#   Turn MDP into MRP? How to select actions for gym envs?
-#   Get Feature Mat? How to represent phi?
-#   Always representable?
-
-class GymPrompt:
-    def __init__(self,
-                 d: int,
-                 n: int,
-                 gamma: float,
-                 env: gym.Env):
-        
-        self.d = d
-        self.n = n
-        self.gamma = gamma
-        self.env = env
-
-    def reset(self) -> torch.Tensor:
-        self.feature_window = deque(maxlen=self.n+2)
-        self.reward_window = deque(maxlen=self.n+1)
-        # populates the feature and rewards
-        self.obs, _ = self.env.reset()
-        self.feature_window.append(self.obs)
-        for _ in range(self.n+1):
-            self.action = self.env.action_space.sample()
-            obs_prime, r, term, trunc, _ = self.env.step(self.action)
-            self.feature_window.append(obs_prime)
-            self.reward_window.append(r)
-            self.obs = obs_prime
-
-        self._store_data()
-
-        return self.z()
-
-    def step(self) -> Tuple[torch.Tensor, float]:
-        # step the MRP
-        obs_prime, r, term, trunc, _ = self.env.step(self.obs)
-        self.feature_window.append(obs_prime)
-        self.reward_window.append(r)
-        self.obs = obs_prime
-
-        self._store_data()
-        return self.z(), r
-
-    # NOTE - following methods are unchanged from MRPPrompt
-
-    def _store_data(self):
-        features = np.array(self.feature_window, dtype=np.float32)
-        rewards = np.array(self.reward_window, dtype=np.float32)
-        self.phi = torch.from_numpy(features[:self.n]).T
-        self.phi_prime = self.gamma*torch.from_numpy(features[1:self.n+1]).T
-        self.r = torch.from_numpy(rewards[:self.n]).unsqueeze(0)
-        self._context = torch.concat([self.phi, self.phi_prime, self.r], dim=0)
-        self._query = torch.from_numpy(features[self.n+1]).reshape(self.d, 1)
-
-    def context(self) -> torch.Tensor:
-        return self._context
-
-    def query(self) -> torch.Tensor:
-        return self._query
-
-    def set_query(self, query: torch.Tensor):
-        query = query.reshape(self.d, 1)
-        self._query = query
-
-    def enable_query_grad(self):
-        self._query.requires_grad_(True)
-
-    def disable_query_grad(self):
-        self._query.requires_grad_(False)
-
-    def query_grad(self) -> torch.Tensor:
-        assert self._query.grad is not None, "no gradient associated with the query"
-        return self._query.grad.reshape((self.d, 1))
-
-    def zero_query_grad(self):
-        self._query.grad = None
-
-    # NOTE - above methods are unchanged from MRPPrompt
-
-    def get_feature_mat(self) -> torch.Tensor:
-        # how should phi be implemented here?
-        pass
-
-    # NOTE - following methods are unchanged from MRPPrompt
-
-    def z(self) -> torch.Tensor:
-        query_col = torch.concat([self._query, torch.zeros((self.d+1, 1))],
-                                 dim=0)
-        return torch.concat([self._context, query_col], dim=1)
-
-    def td_update(self,
-                  w: torch.Tensor,
-                  lr: float = 1.0) -> Tuple[torch.Tensor, float]:
-        '''
-        w: weight vector
-        lr: learning rate
-        '''
-        u = torch.zeros((self.d, 1))
-        for i in range(self.n):
-            target = self.r[0, i] + w.t() @ self.phi_prime[:, [i]]
-            tde = target - w.t() @ self.phi[:, [i]]
-            u += tde * self.phi[:, [i]]
-
-        w += lr/self.n * u
-        v = w.t() @ self.phi[:, [-1]]
-        return w, v.item()
-    
-    # NOTE - above methods are unchanged from MRPPrompt
-
-    def copy(self) -> 'GymPrompt':
-        gym_prompt = GymPrompt(self.d, self.n, self.gamma, self.env.copy())
-        gym_prompt.feature_window = self.feature_window.copy()
-        gym_prompt.reward_window = self.reward_window.copy()
-        gym_prompt.obs = self.obs
-        gym_prompt._store_data()
-        return gym_prompt
 
 
 class MRPPromptGenerator:
@@ -297,24 +179,15 @@ class MRPPromptGenerator:
         elif self.mrp_class == 'loop':
             self.mrp = Loop(n_states=self.s, gamma=self.gamma, threshold=threshold,
                             weight=w, Phi=self.feat.phi)
-        elif self.mrp_class == 'cartpole':
-            self.mrp = gym.make("CartPole-v1")
-            assert self.d == 4
-        elif self.mrp_class == 'mujoco':
-            self.mrp = gym.make("Hopper-v5")
-            assert self.d == 11
+        elif self.mrp_class == 'lake':
+            self.mrp = FrozenLake(n_states=self.s, gamma=self.gamma)
         else:
             raise ValueError("Unknown MRP type")
 
     def reset_feat(self):
-        if self.mrp_class in {'cartpole', 'mujoco'}:
-            self.feat = None
-        else:
-            self.feat = Feature(self.d, self.s)
+        self.feat = Feature(self.d, self.s)
 
     def get_prompt(self) -> MRPPrompt:
         assert self.mrp is not None, "call reset_mrp first"
-        if self.mrp_class in {'cartpole', 'mujoco'}:
-            return GymPrompt(self.d, self.n, self.gamma, self.mrp)
         assert self.feat is not None, "call reset_feat first"
         return MRPPrompt(self.d, self.n, self.gamma, self.mrp, self.feat)

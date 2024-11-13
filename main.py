@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, 
                         help='model to be trained: tf, mamba, s4', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--env', type=str,
-                        help='environment for experiment: boyan, cartpole, mujoco', default='boyan', choices=['boyan', 'cartpole', 'mujoco'])
+                        help='environment for experiment: boyan, lake', default='boyan', choices=['boyan', 'lake'])
     parser.add_argument('--no_parallel', action='store_true',
                         help='disable multiprocessing')
 
@@ -88,12 +88,9 @@ if __name__ == '__main__':
     if args.suffix:
         save_dir = os.path.join(save_dir, args.suffix)
 
-    if args.env == 'cartpole':
-        args.dim_feature = 4
-        args.num_states = -1
-    if args.env == 'mujoco':
-        args.dim_feature = 11
-        args.num_states = -1
+    if args.env == 'lake':
+        args.dim_feature = 4        # TODO - what should this be?
+        args.num_states = 16
 
     base_train_args = dict(
         d=args.dim_feature,
