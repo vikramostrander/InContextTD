@@ -8,10 +8,6 @@ from utils import compute_steady_dist
 import gymnasium as gym
 import copy
 
-# QUESTIONS
-#   - Zero v_td? Because of sparse rewards? Because of repeated episodes?
-#   - What should dim be for frozen lake?
-
 
 class GymAgent:
     def __init__(self, env, epsilon=0.1, alpha=0.5, gamma=0.9):
