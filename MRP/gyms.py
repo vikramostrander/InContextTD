@@ -8,6 +8,10 @@ from utils import compute_steady_dist
 import gymnasium as gym
 import copy
 
+# QUESTIONS
+#   - Zero v_td? Because of sparse rewards? Because of repeated episodes?
+#   - What should dim be for frozen lake?
+
 
 class GymAgent:
     def __init__(self, env, epsilon=0.1, alpha=0.5, gamma=0.9):
@@ -30,7 +34,7 @@ class GymAgent:
         with np.errstate(divide='ignore',invalid='ignore'):
             return np.where(denom != 0, matrix / denom, 0)
 
-    def train(self, episodes=4000) -> np.ndarray:
+    def train(self, episodes=16000) -> np.ndarray:
         for _ in range(episodes):
             state, _ = self.env.reset()
             done = False
@@ -87,8 +91,8 @@ class FrozenLake(MRP):
         next_state, reward, term, trunc, _ = self.env.step(action)
         if term or trunc:
             next_state = self.reset()
-            reward = (reward * 6) - 1
-        return next_state, reward
+            reward = (reward * 30) - 10
+        return next_state, reward - 1
     
     def sample_stationary(self) -> int:
         return np.random.choice(self.n_states, p=self.steady_d)
@@ -98,5 +102,44 @@ class FrozenLake(MRP):
         fl.env = copy.deepcopy(self.env)
         fl.policy = self.policy.copy()
         fl.P = self.P.copy()
-        self.steady_d = self.steady_d.copy()
+        fl.steady_d = self.steady_d.copy()
         return fl
+    
+
+class Taxi(MRP):
+    def __init__(self,
+                 n_states: int,
+                 gamma: float = 0.9) -> None:
+        super().__init__(n_states)
+        self.gamma = gamma
+
+        # create gym environment
+        self.env = gym.make("Taxi-v3")
+
+        # create policy and transition matricies
+        agent = GymAgent(self.env, gamma=self.gamma)
+        self.policy = agent.train()
+        self.P = agent.compute_P(n_states)
+        self.steady_d = compute_steady_dist(self.P)
+
+    def reset(self) -> int:
+        state, _ = self.env.reset()
+        return state
+
+    def step(self, state: int) -> Tuple[int, float]:
+        action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
+        next_state, reward, term, trunc, _ = self.env.step(action)
+        if term or trunc:
+            next_state = self.reset()
+        return next_state, reward
+    
+    def sample_stationary(self) -> int:
+        return np.random.choice(self.n_states, p=self.steady_d)
+    
+    def copy(self) -> 'Taxi':
+        tx = Taxi(self.n_states, self.gamma)
+        tx.env = copy.deepcopy(self.env)
+        tx.policy = self.policy.copy()
+        tx.P = self.P.copy()
+        tx.steady_d = self.steady_d.copy()
+        return tx

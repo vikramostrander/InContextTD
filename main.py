@@ -91,6 +91,9 @@ if __name__ == '__main__':
     if args.env == 'lake':
         args.dim_feature = 4
         args.num_states = 16
+    if args.env == 'taxi':
+        args.dim_feature = 6
+        args.num_states = 500
 
     base_train_args = dict(
         d=args.dim_feature,
