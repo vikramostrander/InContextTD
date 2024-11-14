@@ -10,19 +10,19 @@ import copy
 
 
 class GymAgent:
-    def __init__(self, env, epsilon=0.1, alpha=0.5, gamma=0.9):
+    def __init__(self, env, epsilon=0.1, alpha=0.5, gamma=0.9) -> None:
         self.q_values = np.zeros((env.observation_space.n, env.action_space.n))
         self.env = env
         self.epsilon = epsilon
         self.alpha = alpha
         self.gamma = gamma
     
-    def act(self, state):
+    def act(self, state) -> int:
         if np.random.rand() < self.epsilon: action = self.env.action_space.sample()
         else: action = np.random.choice(np.where(self.q_values[state, :] == np.max(self.q_values[state, :]))[0])
         return action
     
-    def learn(self, state, action, reward, next_state):
+    def learn(self, state, action, reward, next_state) -> None:
         self.q_values[state, action] += self.alpha * (reward + self.gamma * np.max(self.q_values[next_state, :]) - self.q_values[state, action])
 
     def make_distribution(self, matrix) -> np.ndarray:
