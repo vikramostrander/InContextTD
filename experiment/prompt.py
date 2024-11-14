@@ -5,7 +5,7 @@ import torch
 
 from MRP.boyan import BoyanChain
 from MRP.loop import Loop
-from MRP.gyms import FrozenLake, Taxi
+from MRP.lake import FrozenLake
 from MRP.mrp import MRP
 from typing import Tuple
 
@@ -181,8 +181,6 @@ class MRPPromptGenerator:
                             weight=w, Phi=self.feat.phi)
         elif self.mrp_class == 'lake':
             self.mrp = FrozenLake(n_states=self.s, gamma=self.gamma)
-        elif self.mrp_class == 'taxi':
-            self.mrp = Taxi(n_states=self.s, gamma=self.gamma)
         else:
             raise ValueError("Unknown MRP type")
 

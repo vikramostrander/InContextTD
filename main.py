@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dim_feature', type=int,
                         help='feature dimension', default=4)
     parser.add_argument('-s', '--num_states', type=int,
-                        help='number of states', default=10)
+                        help='number of states (fixed for lake environment)', default=10)
     parser.add_argument('-n', '--context_length', type=int,
                         help='context length for transformer', default=30)
     parser.add_argument('-l', '--num_layers', type=int,
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_interval', type=int,
                         help='logging interval', default=10)
     parser.add_argument('--mode', type=str,
-                        help='training mode: auto-regressive, sequential, or standalone (SSMs only)', default='auto', choices=['auto', 'sequential', 'standalone'])
+                        help='training mode: auto-regressive or sequential (or standalone for ssm only)', default='auto', choices=['auto', 'sequential', 'standalone'])
     parser.add_argument('--seed', type=int, nargs='+',
                         help='random seed', default=list(range(0, 30)))
     parser.add_argument('--save_dir', type=str,
@@ -89,11 +89,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(save_dir, args.suffix)
 
     if args.env == 'lake':
-        args.dim_feature = 4
         args.num_states = 16
-    if args.env == 'taxi':
-        args.dim_feature = 6
-        args.num_states = 500
 
     base_train_args = dict(
         d=args.dim_feature,
