@@ -85,7 +85,9 @@ class FrozenLake(MRP):
     def step(self, state: int) -> Tuple[int, float]:
         action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
         next_state, reward, term, trunc, _ = self.env.step(action)
-        if term or trunc: next_state = self.reset()
+        if term or trunc:
+            next_state = self.reset()
+            reward = (reward * 6) - 1
         return next_state, reward
     
     def sample_stationary(self) -> int:
