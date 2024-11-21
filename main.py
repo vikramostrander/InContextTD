@@ -1,5 +1,6 @@
 import datetime
 import os
+import numpy as np
 from argparse import ArgumentParser, Namespace
 
 from joblib import Parallel, delayed
@@ -7,10 +8,13 @@ from joblib import Parallel, delayed
 from experiment.plotter import (plot_attn_params, plot_error_data,
                                 plot_weight_metrics)
 from experiment.train import train
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 
 def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, model_name: str):
     data_dir = os.path.join(train_args['save_dir'], f'seed_{seed}')
+    writer = SummaryWriter(data_dir)
     train_args['save_dir'] = data_dir
     train_args['random_seed'] = seed
 
@@ -32,22 +36,24 @@ def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, mod
 
 if __name__ == '__main__':
     parser = ArgumentParser()
+    parser.add_argument('-mrp', '--mrp_env', type=str,
+                        help='MRP environment', default='boyan')
     parser.add_argument('-d', '--dim_feature', type=int,
                         help='feature dimension', default=4)
     parser.add_argument('-s', '--num_states', type=int,
                         help='number of states (fixed for lake environment)', default=10)
     parser.add_argument('-n', '--context_length', type=int,
-                        help='context length for transformer', default=30)
+                        help='context length', default=100)
     parser.add_argument('-l', '--num_layers', type=int,
                         help='number of layers', default=3)
     parser.add_argument('--gamma', type=float,
-                        help='discount factor', default=0.9)
+                        help='discount factor', default=0.99)
     parser.add_argument('--activation', type=str,
                         help='activation function for transformer', default='identity')
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
-                        help='total number of MRPs for training', default=4_000)
+                        help='total number of MRPs for training ', default=5_000)
     parser.add_argument('--batch_size', type=int,
                         help='mini batch size', default=64)
     parser.add_argument('--n_batch_per_mrp', type=int,
@@ -92,7 +98,13 @@ if __name__ == '__main__':
         args.dim_feature = 16
         args.num_states = 16
 
+    if args.mrp_env == 'cartpole':
+        if args.representable:
+            raise ValueError(
+                "Cartpole MRP does not support representable value function.")
+
     base_train_args = dict(
+        mrp_class=args.mrp_env,
         d=args.dim_feature,
         s=args.num_states,
         n=args.context_length,
@@ -113,6 +125,7 @@ if __name__ == '__main__':
     )
 
     if args.verbose:
+        print(f'Training with {args.mrp_env} MRP.')
         print(
             f'Training {args.mode} transformer of {args.num_layers} layer(s).')
         print(f'Activation function: {args.activation}')
@@ -141,6 +154,8 @@ if __name__ == '__main__':
         Parallel(n_jobs=-1)(
             delayed(run_training_for_seed)(seed, base_train_args, is_linear, model_name) for seed in args.seed
         )
+    #for seed in args.seed:
+    #    run_training_for_seed(seed, base_train_args, is_linear)
 
     data_dirs = []
     for seed in args.seed:

@@ -126,7 +126,7 @@ def train(d: int,
           save_dir: str = None,
           random_seed: int = 2,
           model_name: str = 'tf',
-          env_name: str = 'boyan'):
+          mrp_class: str = 'boyan') -> None:
     '''
     d: feature dimension
     s: number of states
@@ -144,6 +144,7 @@ def train(d: int,
     n_batch_per_mrp: number of batches per MRP
     n_mrps: number of MRPs
     random_seed: random seed
+    mrp_class: type of MRP environment (e.g. boyan, cartpole)
     '''
 
     _init_save_dir(save_dir)
@@ -171,7 +172,7 @@ def train(d: int,
                           lr=lr, weight_decay=weight_decay)
     log = _init_log()
 
-    pro_gen = MRPPromptGenerator(s, d, n, gamma, env_name)
+    pro_gen = MRPPromptGenerator(s, d, n, gamma, mrp_class)
 
     ### Training Loop ###
     for i in tqdm(range(1, n_mrps+1)):
@@ -207,6 +208,7 @@ def train(d: int,
         if i % log_interval == 0:
             prompt.reset()  # reset prompt for fair testing
             mrp: MRP = prompt.mrp
+
             phi: np.ndarray = prompt.get_feature_mat().numpy()
             steady_d: np.ndarray = mrp.steady_d
 
@@ -216,7 +218,6 @@ def train(d: int,
                 prompt.context(), torch.from_numpy(phi)).detach().numpy()
 
             log['xs'].append(i)
-
             log['alpha'].append(batch_td.attn.alpha.item())
 
             # Value Difference (VD)
@@ -258,7 +259,8 @@ def train(d: int,
         'weight_decay': weight_decay,
         'log_interval': log_interval,
         'random_seed': random_seed,
-        'linear': True if activation == 'identity' else False
+        'linear': True if activation == 'identity' else False,
+        'mrp_class': mrp_class,
     }
 
     # Save hyperparameters as JSON
