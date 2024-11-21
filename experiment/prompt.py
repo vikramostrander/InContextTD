@@ -185,7 +185,10 @@ class MRPPromptGenerator:
             raise ValueError("Unknown MRP type")
 
     def reset_feat(self):
-        self.feat = Feature(self.d, self.s)
+        if self.mrp_class == 'lake':
+            self.feat = Feature(self.d, self.s, mode='one-hot')
+        else:
+            self.feat = Feature(self.d, self.s)
 
     def get_prompt(self) -> MRPPrompt:
         assert self.mrp is not None, "call reset_mrp first"

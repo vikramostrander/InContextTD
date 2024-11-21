@@ -5,11 +5,12 @@ import numpy as np
 from MRP.mrp import MRP
 from utils import compute_steady_dist
 
-import gymnasium as gym
 import copy
+import gymnasium as gym
+from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 
 
-class GymAgent:
+class LakeAgent:
     def __init__(self, env, epsilon=0.1, alpha=0.5, gamma=0.9) -> None:
         self.q_values = np.zeros((env.observation_space.n, env.action_space.n))
         self.env = env
@@ -43,15 +44,16 @@ class GymAgent:
         self.policy = self.make_distribution(self.q_values)
         return self.policy
     
-    def compute_P(self, n_states, episodes=4000) -> np.ndarray:
+    def compute_P(self, n_states, term_states, episodes=4000) -> np.ndarray:
+        # solve coverage issue with ones not zeros?
         P = np.zeros((n_states, n_states))
         # assert self.policy is not None
         for _ in range(episodes):
             state, _ = self.env.reset()
             done = False
             while not done:
-                action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
-                # action = np.random.choice(self.env.action_space.n)
+                # action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
+                action = np.random.choice(self.env.action_space.n)
                 next_state, _, term, trunc, _ = self.env.step(action)
                 done = term or trunc
                 if done: 
@@ -60,6 +62,7 @@ class GymAgent:
                     P[state, next_state] += 1
                     state = next_state
         self.P = self.make_distribution(P)
+        # coverage issue - P does not cover all states, holes and end goal not reachable
         return self.P
 
 
@@ -71,25 +74,31 @@ class FrozenLake(MRP):
         self.gamma = gamma
 
         # create gym environment
-        self.env = gym.make("FrozenLake-v1")
+        self.map = generate_random_map(size=4)
+        self.term_states = [(c == 'H' or c == 'G') for c in ''.join(self.map)]
+        # print(self.map)
+        print(self.term_states)
+        self.env = gym.make("FrozenLake-v1", desc=self.map, is_slippery=False)
 
         # create policy and transition matricies
-        agent = GymAgent(self.env, gamma=self.gamma)
-        self.policy = agent.train()
-        self.P = agent.compute_P(n_states)
+        agent = LakeAgent(self.env, gamma=self.gamma)
+        # self.policy = agent.train()
+        self.P = agent.compute_P(n_states, self.term_states)
+        print(self.P)
         self.steady_d = compute_steady_dist(self.P)
+        print(self.steady_d)
 
     def reset(self) -> int:
         state, _ = self.env.reset()
         return state
 
     def step(self, state: int) -> Tuple[int, float]:
-        action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
-        # action = np.random.choice(self.env.action_space.n)
+        # action = np.random.choice(self.env.action_space.n, p=self.policy[state, :])
+        action = np.random.choice(self.env.action_space.n)
         next_state, reward, term, trunc, _ = self.env.step(action)
         if term or trunc:
             next_state = self.reset()
-            reward = (reward * 30) - 10
+            reward = (reward * 30) - 9
         return next_state, reward - 1
     
     def sample_stationary(self) -> int:

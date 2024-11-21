@@ -89,6 +89,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(save_dir, args.suffix)
 
     if args.env == 'lake':
+        args.dim_feature = 16
         args.num_states = 16
 
     base_train_args = dict(
