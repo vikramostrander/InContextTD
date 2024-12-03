@@ -114,9 +114,11 @@ def train(d: int,
           n: int,
           l: int,
           gamma: float = 0.9,
+          mrp_class: str = 'boyan',
+          model_name: str = 'tf',
+          mode: str = 'auto',
           activation: str = 'identity',
           sample_weight: bool = False,
-          mode: str = 'auto',
           lr: float = 0.001,
           weight_decay=1e-6,
           n_mrps: int = 1000,
@@ -124,18 +126,18 @@ def train(d: int,
           n_batch_per_mrp: int = 5,
           log_interval: int = 10,
           save_dir: str = None,
-          random_seed: int = 2,
-          model_name: str = 'tf',
-          mrp_class: str = 'boyan') -> None:
+          random_seed: int = 2) -> None:
     '''
     d: feature dimension
     s: number of states
     n: context length
     l: number of layers
     gamma: discount factor
+    mrp_class: type of MRP environment (e.g. boyan, lake, cartpole)
+    model_name: type of model (e.g. tf, mamba, s4)
+    mode: 'auto', 'sequential', or 'standalone'
     activation: activation function (e.g. softmax, identity, relu)
     sample_weight: sample a random true weight vector
-    mode: 'auto' or 'sequential'
     lr: learning rate
     weight_decay: regularization
     log_interval: logging interval
@@ -144,7 +146,6 @@ def train(d: int,
     n_batch_per_mrp: number of batches per MRP
     n_mrps: number of MRPs
     random_seed: random seed
-    mrp_class: type of MRP environment (e.g. boyan, cartpole)
     '''
 
     _init_save_dir(save_dir)
@@ -156,7 +157,7 @@ def train(d: int,
             device = torch.device('cuda')
             model = MambaSSM(d, l, mode=mode).to(device)
         else:
-            raise Exception("error: cuda not found")
+            raise Exception("error: cuda not found, required for mamba")
     elif model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model = S4SSM(d, l, mode=mode).to(device)
@@ -249,9 +250,11 @@ def train(d: int,
         'n': n,
         'l': l,
         'gamma': gamma,
+        'mrp_class': mrp_class,
+        'model': model_name,
+        'mode': mode,
         'activation': activation,
         'sample_weight': sample_weight,
-        'mode': mode,
         'n_mrps': n_mrps,
         'mini_batch_size': mini_batch_size,
         'n_batch_per_mrp': n_batch_per_mrp,
@@ -260,7 +263,6 @@ def train(d: int,
         'log_interval': log_interval,
         'random_seed': random_seed,
         'linear': True if activation == 'identity' else False,
-        'mrp_class': mrp_class,
     }
 
     # Save hyperparameters as JSON
