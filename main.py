@@ -5,16 +5,12 @@ from argparse import ArgumentParser, Namespace
 
 from joblib import Parallel, delayed
 
-from experiment.plotter import (plot_attn_params, plot_error_data,
-                                plot_weight_metrics)
+from experiment.plotter import (plot_attn_params, plot_error_data, plot_weight_metrics)
 from experiment.train import train
-import torch
-from torch.utils.tensorboard import SummaryWriter
 
 
-def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, model_name: str):
+def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool):
     data_dir = os.path.join(train_args['save_dir'], f'seed_{seed}')
-    writer = SummaryWriter(data_dir)
     train_args['save_dir'] = data_dir
     train_args['random_seed'] = seed
 
@@ -25,9 +21,9 @@ def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, mod
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
 
-    plot_error_data([data_dir], figure_dir, model_name)
+    plot_error_data([data_dir], figure_dir, train_args['model_name'])
 
-    if model_name == 'tf':
+    if train_args['model_name'] == 'tf':
         plot_attn_params([data_dir], figure_dir)
         if is_linear:
             # the weight metrics are only sensible for linear transformers
@@ -36,24 +32,29 @@ def run_training_for_seed(seed: int, train_args: Namespace, is_linear: bool, mod
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-mrp', '--mrp_env', type=str,
-                        help='MRP environment', default='boyan')
     parser.add_argument('-d', '--dim_feature', type=int,
                         help='feature dimension', default=4)
     parser.add_argument('-s', '--num_states', type=int,
-                        help='number of states (fixed for lake environment)', default=10)
+                        help='number of states', default=10)
     parser.add_argument('-n', '--context_length', type=int,
                         help='context length', default=100)
     parser.add_argument('-l', '--num_layers', type=int,
                         help='number of layers', default=3)
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.99)
+    parser.add_argument('-mrp', '--mrp_env', type=str,
+                        help='MRP environment', default='boyan', choices=['boyan', 'lake', 'cartpole'])
+    parser.add_argument('-model', '--model_name', type=str, 
+                        help='model type', default='tf', choices=['tf', 'mamba', 's4'])
+    parser.add_argument('--mode', type=str,
+                        help='training mode: auto-regressive or sequential (or standalone for SSM only)', 
+                        default='auto', choices=['auto', 'sequential', 'standalone'])
     parser.add_argument('--activation', type=str,
-                        help='activation function for transformer', default='identity')
+                        help='activation function for transformers', default='identity')
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
-                        help='total number of MRPs for training ', default=5_000)
+                        help='total number of MRPs for training', default=5_000)
     parser.add_argument('--batch_size', type=int,
                         help='mini batch size', default=64)
     parser.add_argument('--n_batch_per_mrp', type=int,
@@ -64,8 +65,6 @@ if __name__ == '__main__':
                         help='regularization term', default=1e-6)
     parser.add_argument('--log_interval', type=int,
                         help='logging interval', default=10)
-    parser.add_argument('--mode', type=str,
-                        help='training mode: auto-regressive or sequential (or standalone for ssm only)', default='auto', choices=['auto', 'sequential', 'standalone'])
     parser.add_argument('--seed', type=int, nargs='+',
                         help='random seed', default=list(range(0, 30)))
     parser.add_argument('--save_dir', type=str,
@@ -77,12 +76,6 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='print training details')
-    parser.add_argument('--model', type=str, 
-                        help='model to be trained: tf, mamba, s4', default='tf', choices=['tf', 'mamba', 's4'])
-    parser.add_argument('--env', type=str,
-                        help='environment for experiment: boyan, lake', default='boyan', choices=['boyan', 'lake'])
-    parser.add_argument('--no_parallel', action='store_true',
-                        help='disable multiprocessing')
 
     args: Namespace = parser.parse_args()
     if args.save_dir:
@@ -94,25 +87,22 @@ if __name__ == '__main__':
     if args.suffix:
         save_dir = os.path.join(save_dir, args.suffix)
 
-    if args.env == 'lake':
-        args.dim_feature = 16
+    if args.mrp_env == 'lake':
         args.num_states = 16
-
     if args.mrp_env == 'cartpole':
-        if args.representable:
-            raise ValueError(
-                "Cartpole MRP does not support representable value function.")
+        args.num_states = 81
 
     base_train_args = dict(
-        mrp_class=args.mrp_env,
         d=args.dim_feature,
         s=args.num_states,
         n=args.context_length,
         l=args.num_layers,
         gamma=args.gamma,
+        mrp_class=args.mrp_env,
+        model_name=args.model_name,
+        mode=args.mode,
         activation=args.activation,
         sample_weight=args.representable,
-        mode=args.mode,
         lr=args.lr,
         weight_decay=args.weight_decay,
         n_mrps=args.n_mrps,
@@ -120,14 +110,11 @@ if __name__ == '__main__':
         n_batch_per_mrp=args.n_batch_per_mrp,
         log_interval=args.log_interval,
         save_dir=save_dir,
-        model_name=args.model,
-        env_name=args.env
     )
 
     if args.verbose:
-        print(f'Training with {args.mrp_env} MRP.')
-        print(
-            f'Training {args.mode} transformer of {args.num_layers} layer(s).')
+        print(f'Training {args.model_name} on {args.mrp_env} MRP.')
+        print(f'Training {args.mode} model of {args.num_layers} layer(s).')
         print(f'Activation function: {args.activation}')
         print(f"Feature dimension: {args.dim_feature}")
         print(f"Context length: {args.context_length}")
@@ -146,16 +133,9 @@ if __name__ == '__main__':
         print(f'Random seeds: {",".join(map(str, args.seed))}')
 
     is_linear = args.activation == 'identity'
-    model_name = args.model
-
-    if args.no_parallel:
-        for seed in args.seed: run_training_for_seed(seed, base_train_args, is_linear, model_name)
-    else:
-        Parallel(n_jobs=-1)(
-            delayed(run_training_for_seed)(seed, base_train_args, is_linear, model_name) for seed in args.seed
-        )
-    #for seed in args.seed:
-    #    run_training_for_seed(seed, base_train_args, is_linear)
+    Parallel(n_jobs=-1)(
+        delayed(run_training_for_seed)(seed, base_train_args, is_linear) for seed in args.seed
+    )
 
     data_dirs = []
     for seed in args.seed:
@@ -167,9 +147,9 @@ if __name__ == '__main__':
     if not os.path.exists(average_figures_dir):
         os.makedirs(average_figures_dir)
 
-    plot_error_data(data_dirs, average_figures_dir, model_name)
+    plot_error_data(data_dirs, average_figures_dir, base_train_args['model_name'])
 
-    if model_name == 'tf':
+    if base_train_args['model_name'] == 'tf':
         plot_attn_params(data_dirs, average_figures_dir)
         if is_linear:
             plot_weight_metrics(data_dirs, average_figures_dir)
