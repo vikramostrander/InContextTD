@@ -7,7 +7,7 @@ from MRP.boyan import BoyanChain
 from MRP.loop import Loop
 from MRP.lake import FrozenLake
 from MRP.mrp import MRP
-from MRP.cart_pole import CartPoleEnvironment
+from MRP.cartpole import CartPoleEnvironment
 from typing import Tuple
 
 
@@ -20,7 +20,6 @@ class Feature:
         '''
         self.d = d
         self.s = s
-        #import pdb; pdb.set_trace()
         if mode == 'random':
             self.phi = np.random.uniform(low=-1, high=1,
                                         size=(s, d)).astype(np.float32)
@@ -131,8 +130,6 @@ class MRPPrompt:
         self._query.grad = None
 
     def get_feature_mat(self) -> torch.Tensor:
-        if self.feature_fun.s == np.inf: # cannot return feature matrix for continuous state space
-            return None
         return torch.from_numpy(self.feature_fun.phi)
 
     def z(self) -> torch.Tensor:
@@ -201,18 +198,15 @@ class MRPPromptGenerator:
             if not d_th_root_s.is_integer():
                 raise ValueError("The number of states must be a perfect power of the feature dimension")
             d_th_root_s = int(d_th_root_s)
-
-            self.mrp = CartPoleEnvironment(bins_per_feature=d_th_root_s)
+            self.mrp = CartPoleEnvironment(dim=self.d, bins_per_feature=d_th_root_s,
+                                           gamma=self.gamma, weight=w, X=self.feat.phi)
         elif self.mrp_class == 'lake':
             self.mrp = FrozenLake(n_states=self.s, gamma=self.gamma)
         else:
             raise ValueError("Unknown MRP type")
 
     def reset_feat(self):
-        if self.mrp_class == 'lake':
-            self.feat = Feature(self.d, self.s, mode='one-hot')
-        else:
-            self.feat = Feature(self.d, self.s)
+        self.feat = Feature(self.d, self.s)
 
     def get_prompt(self) -> MRPPrompt:
         assert self.mrp is not None, "call reset_mrp first"
