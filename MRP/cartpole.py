@@ -7,87 +7,19 @@ from MRP.mrp import MRP
 from utils import compute_steady_dist
 
 
-class CartPoleMRP(MRP):
-    def __init__(self, dim, bins_per_feature=2, steps=50000):
-        self.dim = dim
-        self.bins_per_feature = bins_per_feature
-        self.n_states = 0
-
-        while self.n_states < 3:
-            # print('making env')
-            env = CartPoleEnvironment(self.dim, self.bins_per_feature)
-            P = np.zeros((env.total_states, env.total_states))
-            state = env.reset()
-            self.init_state_id = env.get_discretized_feature_idx(state)
-            for _ in range(steps):
-                next_state, _ = env.step(state)
-                P[env.get_discretized_feature_idx(state),
-                env.get_discretized_feature_idx(next_state)] += 1
-                state = next_state
-            # print(P)
-            
-            self.states = np.nonzero(np.sum(P, axis=1))[0]
-            # print(self.states)
-            self.n_states = self.states.size
-            # print(self.n_states)
-
-        self.P = np.zeros((self.n_states, self.n_states))
-        self.r = np.random.uniform(low=-1, high=1, size=self.n_states)
-        
-        for i, s in enumerate(self.states):
-            for j, s_prime in enumerate(self.states):
-                self.P[i, j] = P[s, s_prime]
-            if s == self.init_state_id:
-                self.init_state = i
-        assert self.init_state is not None
-        # print(self.P)
-        # print('^ final P')
-
-        self.P = self.make_distribution(self.P)
-        self.steady_d = compute_steady_dist(self.P)
-
-        # print(self.steady_d)
-        # print('^ steady d')
-
-    def reset(self):
-        return self.init_state
-
-    def step(self, state):
-        next_state = np.random.choice(np.arange(self.n_states), p=self.P[state, :])
-        reward = self.r[next_state]
-        return next_state, reward
-
-    def make_distribution(self, matrix) -> np.ndarray:
-        denom = np.sum(matrix, axis=1, keepdims=True)
-        with np.errstate(divide='ignore',invalid='ignore'):
-            return np.where(denom != 0, matrix / denom, 0)
-
-    def copy(self) -> 'CartPoleMRP':
-        cp = CartPoleMRP(self.dim, self.bins_per_feature)
-        cp.n_states = self.n_states
-        cp.P = self.P.copy()
-        cp.steady_d = self.steady_d.copy()
-        return cp
-
-
 class CartPoleEnvironment(MRP):
     """Credit : https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py#L7"""
 
     def __init__(self, dim, bins_per_feature: int = 2, gamma: float = 0.9, weight: np.ndarray = None, X: np.ndarray = None):
 
         self.gravity = 9.8
-        # self.gravity = np.random.uniform(low=7, high=12) # gravity is uniformly distributed
         self.masscart = 1.0
-        # self.masscart = np.random.uniform(low=0.5, high=1.5) # masscart is uniformly distributed
         self.masspole = 0.1
-        # self.masspole = np.random.uniform(low=0.05, high=0.15) # masspole is uniformly distributed
         self.total_mass = (self.masspole + self.masscart)
-        self.length = np.random.uniform(low=0.5, high=1.5)  # actually half the pole's length
+        self.length = 0.5  # actually half the pole's length
         self.polemass_length = (self.masspole * self.length)
         self.force_mag = 10.0
-        # self.force_mag = np.random.uniform(low=5, high=15) # force_mag is uniformly distributed
         self.tau = 0.02  # seconds between state updates
-        # self.tau = np.random.uniform(low=0.01, high=0.05) # tau is uniformly distributed
         self.kinematics_integrator = 'euler'
         self.epsilon = np.random.rand() # epsilon controls the action distribution
 
@@ -220,14 +152,6 @@ class CartPoleEnvironment(MRP):
     
     def copy(self) -> 'CartPoleEnvironment':
         cp = CartPoleEnvironment(self.dim, self.s_bins, self.gamma, self.w, self.X)
-        cp.gravity = self.gravity
-        cp.masscart = self.masscart
-        cp.masspole = self.masspole
-        cp.total_mass = self.total_mass
-        cp.length = self.length
-        cp.polemass_length = self.polemass_length
-        cp.force_mag = self.force_mag
-        cp.tau = self.tau
         cp.epsilon = self.epsilon
         cp.rewards = self.rewards.copy()
         cp.P = self.P.copy()
