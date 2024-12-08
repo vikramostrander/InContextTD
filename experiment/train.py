@@ -190,7 +190,13 @@ def train(d: int,
                 Z_next, reward = prompt.step()  # slide window
                 v_next = model.pred_v(Z_next.to(device)).cpu()
                 v_hard_next = batch_td.pred_v(Z_next)
-                tde = reward + gamma*v_next.detach() - v_current
+                G = 0.0
+                prompt_copy = prompt.copy()
+                for i in range(30):
+                    _, r = prompt_copy.step()
+                    G += gamma**(i+1) * r
+                tde = reward + G - v_current
+                # tde = reward + gamma*v_next.detach() - v_current 
                 tde_hard = reward + gamma*v_hard_next.detach() - v_hard_current
                 mstde += tde**2
                 mstde_hard += tde_hard**2
