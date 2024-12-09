@@ -192,9 +192,9 @@ def train(d: int,
                 v_hard_next = batch_td.pred_v(Z_next)
                 G = 0.0
                 prompt_copy = prompt.copy()
-                for _ in range(30):
+                for ind in range(30):
                     _, r = prompt_copy.step()
-                    G += gamma**(i+1) * r
+                    G += gamma**(ind+1) * r
                 tde = reward + G - v_current
                 # tde = reward + gamma*v_next.detach() - v_current 
                 tde_hard = reward + gamma*v_hard_next.detach() - v_hard_current
