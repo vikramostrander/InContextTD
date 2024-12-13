@@ -50,7 +50,7 @@ if __name__ == '__main__':
                         help='training mode: auto-regressive or sequential (or standalone for SSM only)', 
                         default='auto', choices=['auto', 'sequential', 'standalone'])
     parser.add_argument('--activation', type=str,
-                        help='activation function for transformers', default='identity')
+                        help='activation function', default='identity')
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
@@ -74,6 +74,8 @@ if __name__ == '__main__':
     parser.add_argument('--gen_gif',
                         help='generate a GIF for the evolution of weights',
                         action='store_true')
+    parser.add_argument('--no_parallel', action='store_true',
+                        help='disable multiprocessing')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='print training details')
 
@@ -133,9 +135,14 @@ if __name__ == '__main__':
         print(f'Random seeds: {",".join(map(str, args.seed))}')
 
     is_linear = args.activation == 'identity'
-    Parallel(n_jobs=-1)(
-        delayed(run_training_for_seed)(seed, base_train_args, is_linear) for seed in args.seed
-    )
+
+    if args.no_parallel:
+        for seed in args.seed:
+            run_training_for_seed(seed, base_train_args, is_linear)
+    else:
+        Parallel(n_jobs=-1)(
+            delayed(run_training_for_seed)(seed, base_train_args, is_linear) for seed in args.seed
+        )
 
     data_dirs = []
     for seed in args.seed:

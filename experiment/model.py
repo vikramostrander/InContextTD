@@ -9,7 +9,7 @@ from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
 sys.path.append('s4')
-from src.models.sequence.backbones.block import SequenceResidualBlock as S4Block
+from src.models.sequence.modules.s4block import S4Block
 sys.path.remove('s4')
 
 from utils import stack_four
@@ -256,22 +256,25 @@ class S4SSM(nn.Module):
     def __init__(self,
                  d: int,
                  l: int,
+                 activation='gelu',
                  mode='auto'):
         super(S4SSM, self).__init__()
         self.d = d
         self.l = l
         self.mode = mode
+        assert activation in {'gelu', 'identity', 'elu', 'tanh', 'relu'}
         if mode == 'auto':
-            self.layer = S4Block(2*d+1, layer='s4', residual='residual', norm='layer', 
-                                 transposed=True)
+            self.layer = S4Block(2*d+1, activation=activation)
+            self.norm = nn.LayerNorm(2*d+1)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                S4Block(2*d+1, layer='s4', residual='residual', norm='layer', 
-                        transposed=True)
+                S4Block(2*d+1, activation=activation)
+            for _ in range(l)])
+            self.norms = nn.ModuleList([
+                nn.LayerNorm(2*d+1) 
             for _ in range(l)])
         elif mode == 'standalone':
-            self.layer = S4Block(2*d+1, layer='s4', residual=None, norm=None,
-                                 transposed=True)
+            self.layer = S4Block(2*d+1, activation=activation)
         else:
             raise ValueError('mode must be either auto or sequential')
 
@@ -279,12 +282,18 @@ class S4SSM(nn.Module):
         Z.unsqueeze_(0)
         if self.mode == 'auto':
             for _ in range(self.l):
+                residual = Z
                 Z, _ = self.layer(Z)
+                Z = Z + residual
+                Z = self.norm(Z.transpose(-1, -2)).transpose(-1, -2)
         elif self.mode == 'sequential':
-            for layer in self.layers:
+            for layer, norm in zip(self.layers, self.norms):
+                residual = Z
                 Z, _ = layer(Z)
+                Z = Z + residual
+                Z = norm(Z.transpose(-1, -2)).transpose(-1, -2)
         else:
-            Z = self.layer(Z)
+            Z, _ = self.layer(Z)
         Z.squeeze_(0)
         return Z
     

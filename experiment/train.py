@@ -160,7 +160,7 @@ def train(d: int,
             raise Exception("error: cuda not found, required for mamba")
     elif model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        model = S4SSM(d, l, mode=mode).to(device)
+        model = S4SSM(d, l, activation=activation, mode=mode).to(device)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)
