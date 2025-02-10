@@ -3,8 +3,9 @@ import torch.nn as nn
 
 import sys
 
+from experiment.mamba import Mamba
 sys.path.append('mamba')
-from mamba_ssm.modules.mamba_simple import Mamba
+# from mamba_ssm.modules.mamba_simple import Mamba
 from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
@@ -200,34 +201,41 @@ class MambaSSM(nn.Module):
     def __init__(self,
                  d: int,
                  l: int,
+                 activation: str,
+                 device: torch.device,
                  mode='auto'):
         super(MambaSSM, self).__init__()
         self.d = d
         self.l = l
+        self.device = device
         self.mode = mode
         if mode == 'auto':
-            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
+            # self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
+            pass
         elif mode == 'sequential':
-            self.layers = nn.ModuleList([
-                MambaBlock(2*d+1, Mamba, nn.Identity)
-            for _ in range(l)])
+            # self.layers = nn.ModuleList([
+            #     MambaBlock(2*d+1, Mamba, nn.Identity)
+            # for _ in range(l)])
+            pass
         elif mode == 'standalone':
-            self.layer = Mamba(2*d+1)
+            self.layer = Mamba(2*d+1, activation=activation, device=self.device)
         else:
-            raise ValueError('mode must be either auto or sequential')
+            raise ValueError('mode must be auto, sequential, or standalone')
 
     def forward(self, Z):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         residual = None
         if self.mode == 'auto':
-            for _ in range(self.l):
-                Z, residual = self.layer(Z, residual)
-            Z = (Z + residual) if residual is not None else Z
+            # for _ in range(self.l):
+            #     Z, residual = self.layer(Z, residual)
+            # Z = (Z + residual) if residual is not None else Z
+            pass
         elif self.mode == 'sequential':
-            for layer in self.layers:
-                Z, residual = layer(Z, residual)
-            Z = (Z + residual) if residual is not None else Z
+            # for layer in self.layers:
+            #     Z, residual = layer(Z, residual)
+            # Z = (Z + residual) if residual is not None else Z
+            pass
         else:
             Z = self.layer(Z)
         Z.squeeze_(0)
@@ -239,7 +247,7 @@ class MambaSSM(nn.Module):
                        phi: torch.Tensor):
         v_vec = []
         for feature in phi:
-            feature_col = torch.zeros((2 * self.d + 1, 1), device=phi.get_device())
+            feature_col = torch.zeros((2 * self.d + 1, 1), device=self.device)
             feature_col[:self.d, 0] = feature
             Z_p = torch.cat([context, feature_col], dim=1)
             v = self.pred_v(Z_p)
