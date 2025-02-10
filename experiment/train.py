@@ -155,12 +155,12 @@ def train(d: int,
     if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            model = MambaSSM(d, l, mode=mode).to(device)
+            model = MambaSSM(d, l, activation=activation, device=device, mode=mode).to(device)
         else:
             raise Exception("error: cuda not found, required for mamba")
-    elif model_name == 's4':
-        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        model = S4SSM(d, l, activation=activation, mode=mode).to(device)
+    # elif model_name == 's4':
+        # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        # model = S4SSM(d, l, activation=activation, mode=mode).to(device)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)
@@ -190,14 +190,7 @@ def train(d: int,
                 Z_next, reward = prompt.step()  # slide window
                 v_next = model.pred_v(Z_next.to(device)).cpu()
                 v_hard_next = batch_td.pred_v(Z_next)
-                G = 0.0
-                mrp_copy = prompt.mrp.copy()
-                s_copy = prompt.s
-                for ind in range(30):
-                    s_copy, r = mrp_copy.step(s_copy)
-                    G += gamma**(ind+1) * r
-                tde = reward + G - v_current
-                # tde = reward + gamma*v_next.detach() - v_current 
+                tde = reward + gamma*v_next.detach() - v_current 
                 tde_hard = reward + gamma*v_hard_next.detach() - v_hard_current
                 mstde += tde**2
                 mstde_hard += tde_hard**2
@@ -221,7 +214,8 @@ def train(d: int,
             steady_d: np.ndarray = mrp.steady_d
 
             v_model: np.ndarray = model.fit_value_func(
-                prompt.context().to(device), torch.from_numpy(phi).to(device)).detach().cpu().numpy()
+                prompt.context().to(device), torch.from_numpy(phi).to(device)
+            ).detach().cpu().numpy()
             v_td: np.ndarray = batch_td.fit_value_func(
                 prompt.context(), torch.from_numpy(phi)).detach().numpy()
 
