@@ -32,7 +32,7 @@ class Mamba(nn.Module):
         conv_bias=True,
         bias=False,
         layer_idx=None,
-        activation="linear",
+        activation='identity',
         device=None,
         dtype=None,
     ):
@@ -58,7 +58,7 @@ class Mamba(nn.Module):
             **factory_kwargs,
         )
 
-        if activation == "linear":
+        if activation == 'identity':
             self.act = nn.Linear()
         else:
             self.act = nn.SiLU()

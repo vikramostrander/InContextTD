@@ -209,7 +209,7 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        assert activation in {'linear', 'silu'}
+        assert activation in {'identity', 'silu'}
         if mode == 'auto':
             self.layer = Mamba(2*d+1, activation=activation, device=self.device)
         elif mode == 'sequential':
