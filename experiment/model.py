@@ -209,14 +209,16 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
+        assert activation in {'linear', 'silu'}
         if mode == 'auto':
-            # self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
-            pass
+            self.layer = Mamba(2*d+1, activation=activation, device=self.device)
         elif mode == 'sequential':
-            # self.layers = nn.ModuleList([
-            #     MambaBlock(2*d+1, Mamba, nn.Identity)
-            # for _ in range(l)])
-            pass
+            self.layers = nn.ModuleList([
+                Mamba(2*d+1, activation=activation, device=self.device)
+            for i in range(l)])
+            self.norms = nn.ModuleList([
+                nn.LayerNorm(2*d+1)
+            for _ in range(l)])
         elif mode == 'standalone':
             self.layer = Mamba(2*d+1, activation=activation, device=self.device)
         else:
@@ -227,15 +229,15 @@ class MambaSSM(nn.Module):
         Z.unsqueeze_(0)
         residual = None
         if self.mode == 'auto':
-            # for _ in range(self.l):
-            #     Z, residual = self.layer(Z, residual)
-            # Z = (Z + residual) if residual is not None else Z
-            pass
+            for _ in range(self.l):
+                residual = (Z + residual) if residual is not None else Z
+                Z = self.norm(residual)
+                Z = self.layer(Z)
         elif self.mode == 'sequential':
-            # for layer in self.layers:
-            #     Z, residual = layer(Z, residual)
-            # Z = (Z + residual) if residual is not None else Z
-            pass
+            for layer, norm in zip(self.layers, self.norms):
+                residual = (Z + residual) if residual is not None else Z
+                Z = norm(residual)
+                Z = layer(Z)
         else:
             Z = self.layer(Z)
         Z.squeeze_(0)
