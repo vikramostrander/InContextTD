@@ -59,7 +59,7 @@ class Mamba(nn.Module):
         )
 
         if activation == 'identity':
-            self.act = nn.Linear()
+            self.act = nn.Identity()
         else:
             self.act = nn.SiLU()
 
