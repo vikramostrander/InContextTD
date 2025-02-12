@@ -212,13 +212,9 @@ class MambaSSM(nn.Module):
         assert activation in {'identity', 'silu'}
         if mode == 'auto':
             self.layer = Mamba(2*d+1, activation=activation, device=self.device)
-            self.norm = nn.LayerNorm(2*d+1)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
                 Mamba(2*d+1, activation=activation, device=self.device)
-            for i in range(l)])
-            self.norms = nn.ModuleList([
-                nn.LayerNorm(2*d+1)
             for _ in range(l)])
         elif mode == 'standalone':
             self.layer = Mamba(2*d+1, activation=activation, device=self.device)
@@ -232,12 +228,10 @@ class MambaSSM(nn.Module):
         if self.mode == 'auto':
             for _ in range(self.l):
                 residual = (Z + residual) if residual is not None else Z
-                Z = self.norm(residual)
                 Z = self.layer(Z)
         elif self.mode == 'sequential':
-            for layer, norm in zip(self.layers, self.norms):
+            for layer in self.layers:
                 residual = (Z + residual) if residual is not None else Z
-                Z = norm(residual)
                 Z = layer(Z)
         else:
             Z = self.layer(Z)
