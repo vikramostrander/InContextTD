@@ -224,15 +224,16 @@ class MambaSSM(nn.Module):
     def forward(self, Z):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
-        residual = None
         if self.mode == 'auto':
             for _ in range(self.l):
-                residual = (Z + residual) if residual is not None else Z
+                residual = Z
                 Z = self.layer(Z)
+                Z += residual
         elif self.mode == 'sequential':
             for layer in self.layers:
-                residual = (Z + residual) if residual is not None else Z
+                residual = Z
                 Z = layer(Z)
+                Z += residual
         else:
             Z = self.layer(Z)
         Z.squeeze_(0)
