@@ -10,7 +10,7 @@ from tqdm import tqdm
 from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM
 from experiment.prompt import MRPPromptGenerator
 from MRP.mrp import MRP
-from utils import (cos_sim, solve_msve_weight, set_seed)
+from utils import (set_seed, compute_msve, cos_sim, solve_msve_weight)
 
 
 def _init_log() -> dict:
@@ -40,20 +40,6 @@ def _save_log(log: dict, save_dir: str) -> None:
     for key, value in log.items():
         log[key] = np.array(value)
     np.savez(os.path.join(save_dir, 'data.npz'), **log)
-
-
-def compute_msve(v_hat: np.ndarray,
-                 v: np.ndarray,
-                 steady_dist: np.ndarray) -> float:
-    '''
-    v_hat: predicted value
-    v: true value
-    steady_dist: steady state distribution
-    returns MSVE
-    '''
-    error = v - v_hat
-    msve = steady_dist.dot(error**2)
-    return msve.item()
 
 
 def compare_sensitivity(model,

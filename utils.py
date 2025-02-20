@@ -27,6 +27,20 @@ def compute_steady_dist(P: np.array) -> np.ndarray:
     return (null_vec / np.sum(null_vec)).flatten()
 
 
+def compute_msve(v_hat: np.ndarray,
+                 v: np.ndarray,
+                 steady_dist: np.ndarray) -> float:
+    '''
+    v_hat: predicted value
+    v: true value
+    steady_dist: steady state distribution
+    returns MSVE
+    '''
+    error = v - v_hat
+    msve = steady_dist.dot(error**2)
+    return msve.item()
+
+
 def solve_msve_weight(steady_dist: np.ndarray,
                       X: np.ndarray,
                       v: np.ndarray) -> np.ndarray:
