@@ -3,11 +3,7 @@ import torch.nn as nn
 
 import sys
 
-from experiment.mamba import Mamba
-sys.path.append('mamba')
-# from mamba_ssm.modules.mamba_simple import Mamba
-from mamba_ssm.modules.block import Block as MambaBlock
-sys.path.remove('mamba')
+from experiment.mamba import (Mamba, InferenceParams)
 
 sys.path.append('s4')
 from src.models.sequence.modules.s4block import S4Block
@@ -200,42 +196,80 @@ class HardLinearTransformer(nn.Module):
 class MambaSSM(nn.Module):
     def __init__(self,
                  d: int,
+                 n: int,
                  l: int,
                  activation: str,
                  device: torch.device,
                  mode='auto'):
+        '''
+        d: feature dimension
+        n: context length
+        l: number of layers
+        activation: activation function (identity or silu)
+        device: must be cuda (nvidia gpu required)
+        mode: 'auto' or 'sequential'
+        '''
         super(MambaSSM, self).__init__()
         self.d = d
+        self.n = n
         self.l = l
         self.device = device
         self.mode = mode
+        self.inference_params = InferenceParams(self.n + 1, 1)
         assert activation in {'identity', 'silu'}
         if mode == 'auto':
-            self.layer = Mamba(2*d+1, activation=activation, device=self.device)
+            self.layer = Mamba(2*d+1, layer_idx=0, activation=activation, device=self.device)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                Mamba(2*d+1, activation=activation, device=self.device)
-            for _ in range(l)])
+                Mamba(2*d+1, layer_idx=i, activation=activation, device=self.device)
+            for i in range(l)])
         elif mode == 'standalone':
-            self.layer = Mamba(2*d+1, activation=activation, device=self.device)
+            self.layer = Mamba(2*d+1, layer_idx=0, activation=activation, device=self.device)
         else:
             raise ValueError('mode must be auto, sequential, or standalone')
+        
+    def reset_state(self):
+        if self.mode == 'auto':
+            state = self.layer.allocate_inference_cache(
+                self.inference_params.max_batch_size, 
+                self.inference_params.max_seqlen
+            )
+            self.inference_params.key_value_memory_dict[0] = state
+        elif self.mode == 'sequential':
+            for i, layer in enumerate(self.layers):
+                state = layer.allocate_inference_cache(
+                    self.inference_params.max_batch_size, 
+                    self.inference_params.max_seqlen
+                )
+                self.inference_params.key_value_memory_dict[i] = state
+        else:
+            state = self.layer.allocate_inference_cache(
+                self.inference_params.max_batch_size, 
+                self.inference_params.max_seqlen
+            )
+            self.inference_params.key_value_memory_dict[0] = state
+
 
     def forward(self, Z):
+        '''
+        Z: prompt of shape (2*d+1,)
+        '''
+        if Z.shape[1] == self.n + 1: self.reset_state()
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
+        residual = None
         if self.mode == 'auto':
             for _ in range(self.l):
-                residual = Z
-                Z = self.layer(Z)
-                Z += residual
+                residual = (Z + residual) if residual is not None else Z
+                Z = residual
+                Z = self.layer(Z, inference_params=self.inference_params)
         elif self.mode == 'sequential':
             for layer in self.layers:
-                residual = Z
-                Z = layer(Z)
-                Z += residual
+                residual = (Z + residual) if residual is not None else Z
+                Z = residual
+                Z = layer(Z, inference_params=self.inference_params)
         else:
-            Z = self.layer(Z)
+            Z = self.layer(Z, inference_params=self.inference_params)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -243,6 +277,11 @@ class MambaSSM(nn.Module):
     def fit_value_func(self,
                        context: torch.Tensor,
                        phi: torch.Tensor):
+        '''
+        context: the context of shape (2*d+1, n)
+        phi: features of shape (s, d)
+        returns the fitted value function given the context in shape (s, 1)
+        '''
         v_vec = []
         for feature in phi:
             feature_col = torch.zeros((2 * self.d + 1, 1), device=self.device)
@@ -254,8 +293,12 @@ class MambaSSM(nn.Module):
         return mamba_v
     
     def pred_v(self, Z):
+        '''
+        Z: prompt of shape (2*d+1, n+1)
+        predict the value of the query feature
+        '''
         Z_mamba = self.forward(Z.clone())
-        return Z_mamba[-1, -1]
+        return Z_mamba[-1][-1]
 
 
 class S4SSM(nn.Module):
@@ -318,7 +361,7 @@ class S4SSM(nn.Module):
     
     def pred_v(self, Z):
         Z_s4 = self.forward(Z.clone())
-        return Z_s4[-1][-1]
+        return Z_s4[-1][-1] if Z_s4[-1][-1] != 0 else 1e-30
 
 
 def get_activation(activation: str) -> nn.Module:
