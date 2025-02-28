@@ -9,12 +9,14 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from einops import rearrange, repeat
+from dataclasses import dataclass, field
 
 import sys
 
 sys.path.append('mamba')
 from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
 sys.path.remove('mamba')
+
 
 class Mamba(nn.Module):
     def __init__(
@@ -31,8 +33,9 @@ class Mamba(nn.Module):
         dt_init_floor=1e-4,
         conv_bias=True,
         bias=False,
+        use_fast_path=True,  # Fused kernel options
         layer_idx=None,
-        activation='identity',
+        activation="silu",
         device=None,
         dtype=None,
     ):
@@ -44,6 +47,7 @@ class Mamba(nn.Module):
         self.expand = expand
         self.d_inner = int(self.expand * self.d_model)
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
+        self.use_fast_path = use_fast_path
         self.layer_idx = layer_idx
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
@@ -58,10 +62,8 @@ class Mamba(nn.Module):
             **factory_kwargs,
         )
 
-        if activation == 'identity':
-            self.act = nn.Identity()
-        else:
-            self.act = nn.SiLU()
+        self.activation = activation
+        self.act = nn.SiLU() if self.activation == "silu" else nn.Identity()
 
         self.x_proj = nn.Linear(
             self.d_inner, self.dt_rank + self.d_state * 2, bias=False, **factory_kwargs
@@ -105,12 +107,20 @@ class Mamba(nn.Module):
 
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, inference_params=None):
         """
         hidden_states: (B, L, D)
         Returns: same shape as hidden_states
         """
         batch, seqlen, dim = hidden_states.shape
+
+        conv_state, ssm_state = None, None
+        if inference_params is not None:
+            conv_state, ssm_state = self._get_states_from_cache(inference_params, batch)
+            if inference_params.seqlen_offset > 0:
+                # The states are updated inplace
+                out, _, _ = self.step(hidden_states, conv_state, ssm_state)
+                return out
 
         # We do matmul and transpose BLH -> HBL at the same time
         xz = rearrange(
@@ -122,9 +132,14 @@ class Mamba(nn.Module):
             xz = xz + rearrange(self.in_proj.bias.to(dtype=xz.dtype), "d -> d 1")
 
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
-
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
+        
         x, z = xz.chunk(2, dim=1)
+        # Compute short convolution
+        if conv_state is not None:
+            # If we just take x[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
+            # Instead F.pad will pad with zeros if seqlen < self.d_conv, and truncate otherwise.
+            conv_state.copy_(F.pad(x, (self.d_conv - x.shape[-1], 0)))  # Update state (B D W)
 
         x = self.act(self.conv1d(x)[..., :seqlen])
 
@@ -147,9 +162,101 @@ class Mamba(nn.Module):
             z=z,
             delta_bias=self.dt_proj.bias.float(),
             delta_softplus=True,
-            return_last_state=False,
+            return_last_state=ssm_state is not None,
         )
-
+        if ssm_state is not None:
+            y, last_state = y
+            ssm_state.copy_(last_state)
         y = rearrange(y, "b d l -> b l d")
         out = self.out_proj(y)
         return out
+
+    def step(self, hidden_states, conv_state, ssm_state):
+        dtype = hidden_states.dtype
+        assert hidden_states.shape[1] == 1, "Only support decoding with 1 token at a time for now"
+        xz = self.in_proj(hidden_states.squeeze(1))  # (B 2D)
+        x, z = xz.chunk(2, dim=-1)  # (B D)
+
+        # Conv step
+        conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # Update state (B D W)
+        conv_state[:, :, -1] = x
+        x = torch.sum(conv_state * rearrange(self.conv1d.weight, "d 1 w -> d w"), dim=-1)  # (B D)
+        if self.conv1d.bias is not None:
+            x = x + self.conv1d.bias
+        x = self.act(x).to(dtype=dtype)
+
+        x_db = self.x_proj(x)  # (B dt_rank+2*d_state)
+        dt, B, C = torch.split(x_db, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+        # Don't add dt_bias here
+        dt = F.linear(dt, self.dt_proj.weight)  # (B d_inner)
+        A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
+
+        # SSM step
+        # Discretize A and B
+        dt = F.softplus(dt + self.dt_proj.bias.to(dtype=dt.dtype))
+        dA = torch.exp(torch.einsum("bd,dn->bdn", dt, A))
+        dB = torch.einsum("bd,bn->bdn", dt, B)
+        ssm_state.copy_(ssm_state * dA + rearrange(x, "b d -> b d 1") * dB)
+        y = torch.einsum("bdn,bn->bd", ssm_state.to(dtype), C)
+        y = y + self.D.to(dtype) * x
+        y = y * self.act(z)  # (B D)
+
+        out = self.out_proj(y)
+        return out.unsqueeze(1), conv_state, ssm_state
+
+    def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
+        device = self.out_proj.weight.device
+        conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
+        conv_state = torch.zeros(
+            batch_size, self.d_model * self.expand, self.d_conv, device=device, dtype=conv_dtype
+        )
+        ssm_dtype = self.dt_proj.weight.dtype if dtype is None else dtype
+        ssm_state = torch.zeros(
+            batch_size, self.d_model * self.expand, self.d_state, device=device, dtype=ssm_dtype
+        )
+        return conv_state, ssm_state
+
+    def _get_states_from_cache(self, inference_params, batch_size, initialize_states=False):
+        assert self.layer_idx is not None
+        if self.layer_idx not in inference_params.key_value_memory_dict:
+            batch_shape = (batch_size,)
+            conv_state = torch.zeros(
+                batch_size,
+                self.d_model * self.expand,
+                self.d_conv,
+                device=self.conv1d.weight.device,
+                dtype=self.conv1d.weight.dtype,
+            )
+            ssm_state = torch.zeros(
+                batch_size,
+                self.d_model * self.expand,
+                self.d_state,
+                device=self.dt_proj.weight.device,
+                dtype=self.dt_proj.weight.dtype,
+            )
+            inference_params.key_value_memory_dict[self.layer_idx] = (conv_state, ssm_state)
+        else:
+            conv_state, ssm_state = inference_params.key_value_memory_dict[self.layer_idx]
+            if initialize_states:
+                conv_state.zero_()
+                ssm_state.zero_()
+        return conv_state, ssm_state
+    
+@dataclass
+class InferenceParams:
+    """Inference parameters that are passed to the main model in order
+    to efficienly calculate and store the context during inference."""
+
+    max_seqlen: int
+    max_batch_size: int
+    seqlen_offset: int = 0
+    batch_size_offset: int = 0
+    key_value_memory_dict: dict = field(default_factory=dict)
+    lengths_per_sample: Optional[Tensor] = None
+
+    def reset(self, max_seqlen, max_batch_size):
+        self.max_seqlen = max_seqlen
+        self.max_batch_size = max_batch_size
+        self.seqlen_offset = 0
+        if self.lengths_per_sample is not None:
+            self.lengths_per_sample.zero_()
