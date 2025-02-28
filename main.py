@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--num_layers', type=int,
                         help='number of layers', default=3)
     parser.add_argument('--gamma', type=float,
-                        help='discount factor', default=0.99)
+                        help='discount factor', default=0.9)
     parser.add_argument('-mrp', '--mrp_env', type=str,
                         help='MRP environment', default='boyan', choices=['boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
