@@ -45,12 +45,15 @@ if __name__ == '__main__':
     parser.add_argument('-mrp', '--mrp_env', type=str,
                         help='MRP environment', default='boyan', choices=['boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
-                        help='model type', default='tf', choices=['tf', 'mamba', 's4'])
+                        help='model type', default='tf', choices=['tf', 'mamba'])
     parser.add_argument('--mode', type=str,
-                        help='training mode: auto-regressive or sequential (or standalone for SSM only)', 
-                        default='auto', choices=['auto', 'sequential', 'standalone'])
+                        help='training mode: auto-regressive or sequential', 
+                        default='auto', choices=['auto', 'sequential'])
     parser.add_argument('--activation', type=str,
                         help='activation function', default='identity')
+    parser.add_argument('--norm', type=str,
+                        help='normalization function for mamba', 
+                        default='none', choices=['none', 'layer'])
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
@@ -69,6 +72,8 @@ if __name__ == '__main__':
                         help='random seed', default=list(range(0, 30)))
     parser.add_argument('--save_dir', type=str,
                         help='directory to save logs', default=None)
+    parser.add_argument('--save_model', action='store_true',
+                        help='save trained model')
     parser.add_argument('--suffix', type=str,
                         help='suffix to add to the save directory', default=None)
     parser.add_argument('--gen_gif',
@@ -104,6 +109,7 @@ if __name__ == '__main__':
         model_name=args.model_name,
         mode=args.mode,
         activation=args.activation,
+        norm=args.norm,
         sample_weight=args.representable,
         lr=args.lr,
         weight_decay=args.weight_decay,
@@ -112,12 +118,14 @@ if __name__ == '__main__':
         n_batch_per_mrp=args.n_batch_per_mrp,
         log_interval=args.log_interval,
         save_dir=save_dir,
+        save_model=args.save_model,
     )
 
     if args.verbose:
         print(f'Training {args.model_name} on {args.mrp_env} MRP.')
         print(f'Training {args.mode} model of {args.num_layers} layer(s).')
         print(f'Activation function: {args.activation}')
+        print(f'Normalization function: {args.norm}')
         print(f"Feature dimension: {args.dim_feature}")
         print(f"Context length: {args.context_length}")
         print(f"Number of states in the MRP: {args.num_states}")
