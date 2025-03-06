@@ -1,9 +1,15 @@
 import torch
 import torch.nn as nn
 
+from torch import Tensor
+from typing import Optional
+from dataclasses import dataclass, field
+
 import sys
 
-from experiment.mamba import (Mamba, InferenceParams)
+sys.path.append('mamba')
+from mamba_ssm.modules.mamba_simple import Mamba
+sys.path.remove('mamba')
 
 sys.path.append('s4')
 from src.models.sequence.modules.s4block import S4Block
@@ -191,6 +197,26 @@ class HardLinearTransformer(nn.Module):
         '''
         Z_tf = self.forward(Z)
         return -Z_tf[-1, -1]
+    
+
+@dataclass
+class InferenceParams:
+    """Inference parameters that are passed to the main model in order
+    to efficienly calculate and store the context during inference."""
+
+    max_seqlen: int
+    max_batch_size: int
+    seqlen_offset: int = 0
+    batch_size_offset: int = 0
+    key_value_memory_dict: dict = field(default_factory=dict)
+    lengths_per_sample: Optional[Tensor] = None
+
+    def reset(self, max_seqlen, max_batch_size):
+        self.max_seqlen = max_seqlen
+        self.max_batch_size = max_batch_size
+        self.seqlen_offset = 0
+        if self.lengths_per_sample is not None:
+            self.lengths_per_sample.zero_()
 
 
 class MambaSSM(nn.Module):
@@ -198,14 +224,14 @@ class MambaSSM(nn.Module):
                  d: int,
                  n: int,
                  l: int,
-                 activation: str,
                  device: torch.device,
+                 norm='none',
                  mode='auto'):
         '''
         d: feature dimension
         n: context length
         l: number of layers
-        activation: activation function (identity or silu)
+        norm: normalization function (identity or layer)
         device: must be cuda (nvidia gpu required)
         mode: 'auto' or 'sequential'
         '''
@@ -215,61 +241,73 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        self.inference_params = InferenceParams(self.n + 1, 1)
-        assert activation in {'identity', 'silu'}
+        self.inference_params = None
+        self.norm = nn.LayerNorm(2*d+1) if norm == 'layer' else nn.Identity(2*d+1)
         if mode == 'auto':
-            self.layer = Mamba(2*d+1, layer_idx=0, activation=activation, device=self.device)
+            self.layer = Mamba(2*d+1, layer_idx=0, device=self.device)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                Mamba(2*d+1, layer_idx=i, activation=activation, device=self.device)
+                Mamba(2*d+1, layer_idx=i, device=self.device)
             for i in range(l)])
-        elif mode == 'standalone':
-            self.layer = Mamba(2*d+1, layer_idx=0, activation=activation, device=self.device)
         else:
-            raise ValueError('mode must be auto, sequential, or standalone')
+            raise ValueError('mode must be auto or sequential')
         
     def reset_state(self):
+        self.inference_params = InferenceParams(self.n + 1, 1)
         if self.mode == 'auto':
             state = self.layer.allocate_inference_cache(
                 self.inference_params.max_batch_size, 
                 self.inference_params.max_seqlen
             )
             self.inference_params.key_value_memory_dict[0] = state
-        elif self.mode == 'sequential':
+        else:
             for i, layer in enumerate(self.layers):
                 state = layer.allocate_inference_cache(
                     self.inference_params.max_batch_size, 
                     self.inference_params.max_seqlen
                 )
                 self.inference_params.key_value_memory_dict[i] = state
-        else:
-            state = self.layer.allocate_inference_cache(
-                self.inference_params.max_batch_size, 
-                self.inference_params.max_seqlen
-            )
-            self.inference_params.key_value_memory_dict[0] = state
-
 
     def forward(self, Z):
         '''
         Z: prompt of shape (2*d+1,)
         '''
-        if Z.shape[1] == self.n + 1: self.reset_state()
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         residual = None
         if self.mode == 'auto':
             for _ in range(self.l):
                 residual = (Z + residual) if residual is not None else Z
-                Z = residual
+                Z = self.norm(residual)
                 Z = self.layer(Z, inference_params=self.inference_params)
-        elif self.mode == 'sequential':
+        else:
             for layer in self.layers:
                 residual = (Z + residual) if residual is not None else Z
-                Z = residual
+                Z = self.norm(residual)
                 Z = layer(Z, inference_params=self.inference_params)
+        Z.squeeze_(0)
+        Z.transpose_(0, 1)
+        return Z
+    
+    def step(self, Z):
+        '''
+        Z: prompt of shape (2*d+1,1)
+        '''
+        assert(Z.shape[1] == 1)
+        Z.transpose_(0, 1)
+        Z.unsqueeze_(0)
+        residual = None
+        conv_state, ssm_state = self._get_states_from_cache(self.inference_params, 1)
+        if self.mode == 'auto':
+            for _ in range(self.l):
+                residual = (Z + residual) if residual is not None else Z
+                Z = self.norm(residual)
+                Z, conv_state, ssm_state = self.layer.step(Z, conv_state, ssm_state)
         else:
-            Z = self.layer(Z, inference_params=self.inference_params)
+            for layer in self.layers:
+                residual = (Z + residual) if residual is not None else Z
+                Z = self.norm(residual)
+                Z, conv_state, ssm_state = layer.step(Z, conv_state, ssm_state)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
