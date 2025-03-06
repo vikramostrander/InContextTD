@@ -3,11 +3,12 @@ from argparse import ArgumentParser, Namespace
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scienceplots
 import torch
 from tqdm import tqdm
 
 from experiment.prompt import Feature, MRPPrompt
+from experiment.model import MambaSSM
+from experiment.train import train
 from MRP.loop import Loop
 from utils import compute_msve, set_seed
 
@@ -21,6 +22,16 @@ if __name__ == '__main__':
                         help='minimum possible number of states', default=5)
     parser.add_argument('-smax', '--max_state_num', type=int,
                         help='maximum possible number of states', default=15)
+    parser.add_argument('-model', '--model_name', type=str, 
+                        help='model type', default='tf', choices=['tf', 'mamba'])
+    parser.add_argument('--model_path', type=str,
+                        help='path to trained model', default=None)
+    parser.add_argument('--mode', type=str,
+                        help='training mode: auto-regressive or sequential', 
+                        default='auto', choices=['auto', 'sequential'])
+    parser.add_argument('--norm', type=str,
+                        help='normalization function for mamba', 
+                        default='none', choices=['none', 'layer'])
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
     parser.add_argument('--lr', type=float,
@@ -57,6 +68,18 @@ if __name__ == '__main__':
                                  args.max_ctxt_len+1,
                                  args.ctxt_step))
 
+    if args.model == 'mamba':
+        if not torch.cuda.is_available():
+            raise Exception("error: cuda not found, required for mamba")
+        device = torch.device('cuda')
+        if args.model_path:
+            model = MambaSSM(d, l, device=device, norm=args.norm, mode=args.mode).to(device)
+            model.load_state_dict(torch.load(args.model_path))
+        else: 
+            raise Exception("error: trained model required for mamba")
+    else:
+        model = None # placeholder
+
     all_msves = []  # (n_mrps, len(context_lengths))
     for _ in tqdm(range(n_mrps)):
         s = np.random.randint(min_s, max_s + 1)  # sample number of states
@@ -68,12 +91,19 @@ if __name__ == '__main__':
         for n in context_lengths:
             prompt = MRPPrompt(d, n, gamma, mrp, feature)
             prompt.reset()
-            w = torch.zeros((d, 1))
-            for _ in range(l):
-                w, _ = prompt.td_update(w, lr=alpha)
-            msve_n.append(compute_msve(feature.phi @ w.numpy(),
-                                       mrp.v,
-                                       mrp.steady_d))
+            ctxt = prompt.context()
+            if args.model == 'mamba':
+                v = model.fit_value_func(
+                    ctxt.to(device), 
+                    torch.from_numpy(feature.phi).to(device)
+                ).detach().cpu().numpy()
+            else:
+                w = torch.zeros((d, 1))
+                for _ in range(l):
+                    w, _ = prompt.td_update(w, lr=alpha)
+                v = feature.phi @ w.numpy()
+            msve = compute_msve(v, mrp.v, mrp.steady_d)
+            msve_n.append(msve)
         all_msves.append(msve_n)
 
     all_msves = np.array(all_msves)
