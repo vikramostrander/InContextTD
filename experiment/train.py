@@ -104,6 +104,7 @@ def train(d: int,
           model_name: str = 'tf',
           mode: str = 'auto',
           activation: str = 'identity',
+          norm: str = 'none',
           sample_weight: bool = False,
           lr: float = 0.001,
           weight_decay=1e-6,
@@ -112,6 +113,7 @@ def train(d: int,
           n_batch_per_mrp: int = 5,
           log_interval: int = 10,
           save_dir: str = None,
+          save_model: bool = False,
           random_seed: int = 2) -> None:
     '''
     d: feature dimension
@@ -123,14 +125,16 @@ def train(d: int,
     model_name: type of model (e.g. tf, mamba, s4)
     mode: 'auto', 'sequential', or 'standalone'
     activation: activation function (e.g. softmax, identity, relu)
+    norm: normalization function for mamba (none or layer)
     sample_weight: sample a random true weight vector
     lr: learning rate
     weight_decay: regularization
-    log_interval: logging interval
-    save_dir: directory to save logs
+    n_mrps: number of MRPs
     mini_batch_size: mini batch size
     n_batch_per_mrp: number of batches per MRP
-    n_mrps: number of MRPs
+    log_interval: logging interval
+    save_dir: directory to save logs
+    save_model: save model weights
     random_seed: random seed
     '''
 
@@ -141,7 +145,7 @@ def train(d: int,
     if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            model = MambaSSM(d, l, activation=activation, device=device, mode=mode).to(device)
+            model = MambaSSM(d, n, l, device=device, norm=norm, mode=mode).to(device)
         else:
             raise Exception("error: cuda not found, required for mamba")
     # elif model_name == 's4':
@@ -203,7 +207,8 @@ def train(d: int,
                 prompt.context().to(device), torch.from_numpy(phi).to(device)
             ).detach().cpu().numpy()
             v_td: np.ndarray = batch_td.fit_value_func(
-                prompt.context(), torch.from_numpy(phi)).detach().numpy()
+                prompt.context(), torch.from_numpy(phi)
+            ).detach().numpy()
 
             log['xs'].append(i)
             log['alpha'].append(batch_td.attn.alpha.item())
@@ -255,3 +260,7 @@ def train(d: int,
     # Save hyperparameters as JSON
     with open(os.path.join(save_dir, 'params.json'), 'w') as f:
         json.dump(hyperparameters, f)
+
+    # Save model weights
+    if save_model:
+        torch.save(model.state_dict(), os.path.join(save_dir, 'model_state_dict.pth'))
