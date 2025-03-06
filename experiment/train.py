@@ -145,7 +145,7 @@ def train(d: int,
     if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            model = MambaSSM(d, n, l, device=device, norm=norm, mode=mode).to(device)
+            model = MambaSSM(d, l, device=device, norm=norm, mode=mode).to(device)
         else:
             raise Exception("error: cuda not found, required for mamba")
     # elif model_name == 's4':

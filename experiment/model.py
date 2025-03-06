@@ -222,14 +222,12 @@ class InferenceParams:
 class MambaSSM(nn.Module):
     def __init__(self,
                  d: int,
-                 n: int,
                  l: int,
                  device: torch.device,
                  norm='none',
                  mode='auto'):
         '''
         d: feature dimension
-        n: context length
         l: number of layers
         norm: normalization function (identity or layer)
         device: must be cuda (nvidia gpu required)
@@ -237,7 +235,6 @@ class MambaSSM(nn.Module):
         '''
         super(MambaSSM, self).__init__()
         self.d = d
-        self.n = n
         self.l = l
         self.device = device
         self.mode = mode
@@ -277,7 +274,7 @@ class MambaSSM(nn.Module):
         return Z
     
     def reset_state(self):
-        self.inference_params = InferenceParams(self.n + 1, 1)
+        self.inference_params = InferenceParams(1, 1)
         if self.mode == 'auto':
             state = self.layer.allocate_inference_cache(
                 self.inference_params.max_batch_size, 
