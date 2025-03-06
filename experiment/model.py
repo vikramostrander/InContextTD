@@ -251,7 +251,31 @@ class MambaSSM(nn.Module):
             for i in range(l)])
         else:
             raise ValueError('mode must be auto or sequential')
-        
+
+    def forward(self, Z):
+        '''
+        Z: prompt of shape (2*d+1,)
+        '''
+        Z.transpose_(0, 1)
+        Z.unsqueeze_(0)
+        if self.l == 1:
+            Z = layer(Z, inference_params=self.inference_params)
+        else:
+            residual = None
+            if self.mode == 'auto':
+                for _ in range(self.l):
+                    residual = (Z + residual) if residual is not None else Z
+                    Z = self.norm(residual)
+                    Z = self.layer(Z, inference_params=self.inference_params)
+            else:
+                for layer in self.layers:
+                    residual = (Z + residual) if residual is not None else Z
+                    Z = self.norm(residual)
+                    Z = layer(Z, inference_params=self.inference_params)
+        Z.squeeze_(0)
+        Z.transpose_(0, 1)
+        return Z
+    
     def reset_state(self):
         self.inference_params = InferenceParams(self.n + 1, 1)
         if self.mode == 'auto':
@@ -267,27 +291,6 @@ class MambaSSM(nn.Module):
                     self.inference_params.max_seqlen
                 )
                 self.inference_params.key_value_memory_dict[i] = state
-
-    def forward(self, Z):
-        '''
-        Z: prompt of shape (2*d+1,)
-        '''
-        Z.transpose_(0, 1)
-        Z.unsqueeze_(0)
-        residual = None
-        if self.mode == 'auto':
-            for _ in range(self.l):
-                residual = (Z + residual) if residual is not None else Z
-                Z = self.norm(residual)
-                Z = self.layer(Z, inference_params=self.inference_params)
-        else:
-            for layer in self.layers:
-                residual = (Z + residual) if residual is not None else Z
-                Z = self.norm(residual)
-                Z = layer(Z, inference_params=self.inference_params)
-        Z.squeeze_(0)
-        Z.transpose_(0, 1)
-        return Z
     
     def step(self, Z):
         '''
@@ -335,7 +338,7 @@ class MambaSSM(nn.Module):
         Z: prompt of shape (2*d+1, n+1)
         predict the value of the query feature
         '''
-        Z_mamba = self.forward(Z.clone())
+        Z_mamba = self.forward(Z)
         return Z_mamba[-1][-1]
 
 
