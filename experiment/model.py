@@ -256,7 +256,7 @@ class MambaSSM(nn.Module):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         if self.l == 1:
-            Z = layer(Z, inference_params=self.inference_params)
+            Z = self.layer(Z, inference_params=None)
         else:
             residual = None
             if self.mode == 'auto':
@@ -269,6 +269,7 @@ class MambaSSM(nn.Module):
                     residual = (Z + residual) if residual is not None else Z
                     Z = self.norm(residual)
                     Z = layer(Z, inference_params=self.inference_params)
+            Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
