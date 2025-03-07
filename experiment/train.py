@@ -262,5 +262,5 @@ def train(d: int,
         json.dump(hyperparameters, f)
 
     # Save model weights
-    if save_model:
-        torch.save(model.state_dict(), os.path.join(save_dir, 'model_state_dict.pth'))
+    if random_seed == 0 and save_model:
+        torch.save(model, os.path.join(save_dir, 'model.pth'))

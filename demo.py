@@ -68,13 +68,12 @@ if __name__ == '__main__':
                                  args.max_ctxt_len+1,
                                  args.ctxt_step))
 
-    if args.model == 'mamba':
+    if args.model_name == 'mamba':
         if not torch.cuda.is_available():
             raise Exception("error: cuda not found, required for mamba")
         device = torch.device('cuda')
         if args.model_path:
-            model = MambaSSM(d, l, device=device, norm=args.norm, mode=args.mode).to(device)
-            model.load_state_dict(torch.load(args.model_path))
+            model = torch.load(args.model_path)
         else: 
             raise Exception("error: trained model required for mamba")
     else:
@@ -92,7 +91,7 @@ if __name__ == '__main__':
             prompt = MRPPrompt(d, n, gamma, mrp, feature)
             prompt.reset()
             ctxt = prompt.context()
-            if args.model == 'mamba':
+            if args.model_name == 'mamba':
                 v = model.fit_value_func(
                     ctxt.to(device), 
                     torch.from_numpy(feature.phi).to(device)
