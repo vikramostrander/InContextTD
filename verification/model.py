@@ -3,14 +3,6 @@ import torch.nn as nn
 
 from utils import stack_four
 
-import sys
-import numpy as np
-
-sys.path.append('mamba')
-from mamba_ssm.modules.mamba_simple import Mamba
-from mamba_ssm.modules.block import Block as MambaBlock
-sys.path.remove('mamba')
-
 # TD layer
 
 
@@ -195,70 +187,3 @@ class AVGREWTDTransformer(nn.Module):
             v.append(Z[-1, -1].item())
         v = torch.tensor(v)
         return v
-
-# mamba
-
-class MambaSSM(nn.Module):
-    def __init__(self, l: int, d: int, mode: str = 'auto'):
-        '''
-        l: number of layers
-        d: feature dimension
-        '''
-        super(MambaSSM, self).__init__()
-        self.d = d
-        self.l = l
-        self.mode = mode
-        self.Cs = [torch.eye(d) for _ in range(l)]
-        if mode == 'auto':
-            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
-        elif mode == 'sequential':
-            self.layers = nn.ModuleList([
-                Mamba(2*d+1, dtype=torch.float32)
-            for i in range(l)])
-            self.norms = nn.ModuleList([
-                nn.LayerNorm(2*d+1, dtype=torch.float32)
-            for _ in range(l)])
-            # self.layers = nn.ModuleList([
-            #     MambaBlock(2*d+1, Mamba, nn.Identity)
-            # for _ in range(l)])
-        elif mode == 'standalone':
-            self.layer = Mamba(2*d+1, dtype=torch.float32)
-            self.Cs = [torch.eye(d)]
-        else:
-            raise ValueError('mode must be auto, sequential, or standalone')
-
-    def forward(self, Z) -> torch.Tensor:
-        v = []
-        Z = Z.float()
-        residual = None
-        if self.mode == 'auto':
-            for _ in range(self.l):
-                Z.transpose_(0, 1)
-                Z.unsqueeze_(0)
-                Z, residual = self.layer(Z.to(self.device), residual, dtype=torch.float32, 
-                                         device=self.device).to('cpu')
-                Z = (Z + residual) if residual is not None else Z
-                Z.squeeze_(0)
-                Z.transpose_(0, 1)
-                v.append(Z[-1, -1].item())
-        elif self.mode == 'sequential':
-            for layer, norm in zip(self.layers, self.norms):
-                Z.transpose_(0, 1)
-                Z.unsqueeze_(0)
-                residual = Z
-                Z = layer(Z)
-                Z = Z + residual
-                Z = layer(Z)
-                Z = norm(Z)
-                Z.squeeze_(0)
-                Z.transpose_(0, 1)
-                v.append(Z[-1, -1].item())
-        else:
-            Z.transpose_(0, 1)
-            Z.unsqueeze_(0)
-            Z = Z.float()
-            Z = self.layer(Z.to(self.device))
-            Z.squeeze_(0)
-            Z.transpose_(0, 1)
-            v.append(Z[-1, -1].item())
-        return torch.tensor(v)

@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 
 from verification.model import (AVGREWTDTransformer, DiscountedTDTransformer,
-                                RGTransformer, MambaSSM)
+                                RGTransformer)
 from verification.prompt import Prompt
 
 torch.set_default_dtype(torch.float64)
@@ -93,37 +93,9 @@ def verify(d: int, n: int, l: int, num_trials: int, save_dir: str):
     np.save(os.path.join(save_dir, 'residual_gradient.npy'), rg_error)
     np.save(os.path.join(save_dir, 'avg_reward_td.npy'), avg_rew_td_error)
 
-def verify_mamba(d: int, n: int, l: int, num_trials: int, mode: str, save_dir: str):
-    '''
-    d: feature dimension
-    n: context length
-    l: number of layers (updates)
-    num_trials: number of trials
-    save_dir: directory to save verification result
-    '''
-    if not torch.cuda.is_available():
-        raise Exception("error: cuda not found, required for mamba")
-    device = torch.device('cuda')
-    error = []
-    for _ in tqdm(range(num_trials)):
-        prompt = Prompt(d, n, 0.9)
-        mamba = MambaSSM(l, d, mode=mode).to(device)
-        mamba_value = mamba(prompt.z().to(device)).to('cpu').numpy()
-
-        w = torch.zeros((d, 1))
-        value = []
-        for i in range(l):
-            w, v = prompt.td_update(w, mamba.Cs[i], 0.0)
-            value.append(v)
-        value = np.array(value)
-
-        error.append(np.absolute(mamba_value - value))
-
-    error = np.array(error)
-    np.save(os.path.join(save_dir, 'mamba.npy'), error)
 
 if __name__ == '__main__':
-    from verification.plot import (plot_error, plot_mamba_error)
+    from verification.plot import plot_error
     from utils import set_seed
 
     parser = ArgumentParser()
@@ -133,11 +105,6 @@ if __name__ == '__main__':
                         help='context length', default=100)
     parser.add_argument('-l', '--num_layers', type=int,
                         help='number of transformer layers', default=40)
-    parser.add_argument('-model', '--model_name', type=str, 
-                        help='model type', default='tf', choices=['tf', 'mamba'])
-    parser.add_argument('--mode', type=str,
-                        help='training mode: auto-regressive or sequential (or standalone for SSM only)',
-                        default='auto', choices=['auto', 'sequential', 'standalone'])
     parser.add_argument('--num_trials', type=int,
                         help='number of trials', default=30)
     parser.add_argument('--seed', type=int,
@@ -151,19 +118,9 @@ if __name__ == '__main__':
     save_dir = os.path.join(args.save_dir, 'theory')
     os.makedirs(save_dir, exist_ok=True)
 
-    if args.model_name == 'mamba':
-        verify_mamba(args.dim_feature,
-                     args.context_length,
-                     args.num_layers,
-                     args.num_trials,
-                     args.mode,
-                     save_dir)
-        plot_mamba_error(save_dir)
-    
-    else:
-        verify(args.dim_feature,
-            args.context_length,
-            args.num_layers,
-            args.num_trials,
-            save_dir)
-        plot_error(save_dir)
+    verify(args.dim_feature,
+           args.context_length,
+           args.num_layers,
+           args.num_trials,
+           save_dir)
+    plot_error(save_dir)

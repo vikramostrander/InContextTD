@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scienceplots
 
-# plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = True
 
 
 def load_data():
@@ -22,7 +22,7 @@ def load_data():
 
 
 def plot_error(save_dir: str):
-    # plt.style.use('science')
+    plt.style.use('science')
     xs, data = load_data()
     styles = ['solid', 'dashdot', 'dotted', 'dashed']
     fig = plt.figure(figsize=(10, 5))
@@ -32,29 +32,10 @@ def plot_error(save_dir: str):
         ste = np.std(value, axis=0)/np.sqrt(len(value))
         plt.plot(xs, log_mean, label=key, linestyle=style)
         plt.fill_between(xs, log_mean - ste, log_mean + ste, alpha=0.3)
-    # plt.xlabel('Layers', fontsize=20)
-    # plt.ylabel('$\log \left| -\left<\phi_n, w_l\\right> - y_l^{(n+1)} \\right|$',
-    #            rotation=0, labelpad=100, fontsize=20)
-    # plt.legend(fontsize=18)
-    # plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, 'log_error.pdf'))
-    plt.close(fig)
-
-def plot_mamba_error(save_dir: str):
-    # plt.style.use('science')
-    data = np.load('logs/theory/mamba.npy')
-    xs = np.arange(1, len(data[0])+1)
-    fig = plt.figure(figsize=(10, 5))
-
-    mean = np.mean(data, axis=0)
-    log_mean = np.log(mean)
-    ste = np.std(data, axis=0)/np.sqrt(len(data))
-    plt.plot(xs, log_mean)
-    plt.fill_between(xs, log_mean - ste, log_mean + ste, alpha=0.3)
-
-    # plt.xlabel('Layers', fontsize=20)
-    # plt.ylabel('$\log \left| -\left<\phi_n, w_l\\right> - y_l^{(n+1)} \\right|$',
-            #    rotation=0, labelpad=100, fontsize=20)
-    # plt.tight_layout()
+    plt.xlabel('Layers', fontsize=20)
+    plt.ylabel('$\log \left| -\left<\phi_n, w_l\\right> - y_l^{(n+1)} \\right|$',
+               rotation=0, labelpad=100, fontsize=20)
+    plt.legend(fontsize=18)
+    plt.tight_layout()
     plt.savefig(os.path.join(save_dir, 'log_error.pdf'))
     plt.close(fig)

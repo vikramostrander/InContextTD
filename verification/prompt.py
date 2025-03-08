@@ -1,7 +1,6 @@
 import torch
 from typing import Tuple
 
-torch.set_default_dtype(torch.float32)
 
 class Prompt:
     def __init__(self, d: int, n: int, gamma: float):
