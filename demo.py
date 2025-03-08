@@ -7,10 +7,10 @@ import torch
 from tqdm import tqdm
 
 from experiment.prompt import Feature, MRPPrompt
-from experiment.model import MambaSSM
-from experiment.train import train
 from MRP.loop import Loop
+from MRP.boyan import BoyanChain
 from utils import compute_msve, set_seed
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -22,6 +22,9 @@ if __name__ == '__main__':
                         help='minimum possible number of states', default=5)
     parser.add_argument('-smax', '--max_state_num', type=int,
                         help='maximum possible number of states', default=15)
+    parser.add_argument('-mrp', '--mrp_env', type=str,
+                        help='MRP environment', default='loop', 
+                        choices=['loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, 
                         help='model type', default='tf', choices=['tf', 'mamba'])
     parser.add_argument('--model_path', type=str,
@@ -30,7 +33,7 @@ if __name__ == '__main__':
                         help='training mode: auto-regressive or sequential', 
                         default='auto', choices=['auto', 'sequential'])
     parser.add_argument('--norm', type=str,
-                        help='normalization function for mamba', 
+                        help='normalization function for SSMs', 
                         default='none', choices=['none', 'layer'])
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
@@ -85,7 +88,10 @@ if __name__ == '__main__':
         thd = np.random.uniform(low=0.1, high=0.9)
         feature = Feature(d, s)  # new feature
         true_w = np.random.randn(d, 1)  # sample true weight
-        mrp = Loop(s, gamma, threshold=thd, weight=true_w, phi=feature.phi)
+        if args.mrp_env == 'loop':
+            mrp = Loop(s, gamma, threshold=thd, weight=true_w, phi=feature.phi)
+        elif args.mrp_env == 'boyan':
+            mrp = BoyanChain(s, weight=true_w, X=feature.phi)
         msve_n = []
         for n in context_lengths:
             prompt = MRPPrompt(d, n, gamma, mrp, feature)

@@ -47,7 +47,7 @@ if __name__ == '__main__':
                         choices=['boyan', 'lake', 'cartpole'])
     parser.add_argument('--mrp_config', type=str,
                         help='custom MRP presets', default='none', 
-                        choices=['none', 'boyan', 'lake', 'cartpole'])
+                        choices=['none', 'demo', 'boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
                         help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--mode', type=str,
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument('--activation', type=str,
                         help='activation function for transformers', default='identity')
     parser.add_argument('--norm', type=str,
-                        help='normalization function for mamba', 
+                        help='normalization function for SSMs', 
                         default='none', choices=['none', 'layer'])
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
@@ -102,16 +102,25 @@ if __name__ == '__main__':
         save_dir = os.path.join(save_dir, args.suffix)
 
     if args.mrp_config != 'none':
-        args.mrp_env = args.mrp_config
+        if args.mrp_config == 'demo':
+            args.mrp_env = 'loop'
+            args.dim_feature = 5
+            args.num_layers = 15
+            args.num_states = 10
+            args.context_length = 30
+            args.n_mrp = 4000
         if args.mrp_config == 'boyan':
+            args.mrp_env = 'boyan'
             args.num_states = 10
             args.context_length = 30
             args.n_mrps = 4000
         if args.mrp_config == 'lake':
+            args.mrp_env = 'lake'
             args.num_states = 16
             args.context_length = 100
             args.n_mrps = 5000
         if args.mrp_config == 'cartpole':
+            args.mrp_env = 'cartpole'
             args.num_states = 81
             args.context_length = 100
             args.n_mrps = 5000
