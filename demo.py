@@ -76,11 +76,17 @@ if __name__ == '__main__':
             raise Exception("error: cuda not found, required for mamba")
         device = torch.device('cuda')
         if args.model_path:
-            model = torch.load(args.model_path)
+            model = torch.load(args.model_path).to(device)
         else: 
             raise Exception("error: trained model required for mamba")
+    elif args.model_name == 's4':
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model = torch.load(args.model_path).to(device)
+    elif args.model_name == 'tf':
+        device = torch.device('cpu')
+        model = torch.load(args.model_path)
     else:
-        model = None # placeholder
+        raise Exception("error: model must be either tf, mamba, or s4")
 
     all_msves = []  # (n_mrps, len(context_lengths))
     for _ in tqdm(range(n_mrps)):
@@ -97,16 +103,14 @@ if __name__ == '__main__':
             prompt = MRPPrompt(d, n, gamma, mrp, feature)
             prompt.reset()
             ctxt = prompt.context()
-            if args.model_name == 'mamba':
-                v = model.fit_value_func(
-                    ctxt.to(device), 
-                    torch.from_numpy(feature.phi).to(device)
-                ).detach().cpu().numpy()
-            else:
-                w = torch.zeros((d, 1))
-                for _ in range(l):
-                    w, _ = prompt.td_update(w, lr=alpha)
-                v = feature.phi @ w.numpy()
+            v = model.fit_value_func(
+                ctxt.to(device), 
+                torch.from_numpy(feature.phi).to(device)
+            ).detach().cpu().numpy()
+            # w = torch.zeros((d, 1))
+            # for _ in range(l):
+            #     w, _ = prompt.td_update(w, lr=alpha)
+            # v = feature.phi @ w.numpy()
             msve = compute_msve(v, mrp.v, mrp.steady_d)
             msve_n.append(msve)
         all_msves.append(msve_n)
