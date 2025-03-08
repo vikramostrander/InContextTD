@@ -43,14 +43,18 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
     parser.add_argument('-mrp', '--mrp_env', type=str,
-                        help='MRP environment', default='boyan', choices=['boyan', 'lake', 'cartpole'])
+                        help='MRP environment', default='boyan', 
+                        choices=['boyan', 'lake', 'cartpole'])
+    parser.add_argument('--mrp_config', type=str,
+                        help='custom MRP presets', default='none', 
+                        choices=['none', 'boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
                         help='model type', default='tf', choices=['tf', 'mamba'])
     parser.add_argument('--mode', type=str,
                         help='training mode: auto-regressive or sequential', 
                         default='auto', choices=['auto', 'sequential'])
     parser.add_argument('--activation', type=str,
-                        help='activation function', default='identity')
+                        help='activation function for transformers', default='identity')
     parser.add_argument('--norm', type=str,
                         help='normalization function for mamba', 
                         default='none', choices=['none', 'layer'])
@@ -94,10 +98,21 @@ if __name__ == '__main__':
     if args.suffix:
         save_dir = os.path.join(save_dir, args.suffix)
 
-    if args.mrp_env == 'lake':
-        args.num_states = 16
-    if args.mrp_env == 'cartpole':
-        args.num_states = 81
+    if args.mrp_config != 'none':
+        args.mrp_env = args.mrp_config
+        if args.mrp_config == 'boyan':
+            args.dim_features = 4
+            args.num_states = 10
+            args.context_length = 30
+            args.n_mrps = 4000
+        if args.mrp_config == 'lake':
+            args.num_states = 16
+            args.context_length = 100
+            args.n_mrps = 5000
+        if args.mrp_config == 'cartpole':
+            args.num_states = 81
+            args.context_length = 100
+            args.n_mrps = 5000
 
     base_train_args = dict(
         d=args.dim_feature,
