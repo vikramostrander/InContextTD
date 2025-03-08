@@ -149,9 +149,9 @@ def train(d: int,
             model = MambaSSM(d, l, device=device, norm=norm, mode=mode).to(device)
         else:
             raise Exception("error: cuda not found, required for mamba")
-    # elif model_name == 's4':
-        # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        # model = S4SSM(d, l, activation=activation, mode=mode).to(device)
+    elif model_name == 's4':
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model = S4SSM(d, l, device=device, norm=norm, mode=mode).to(device)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)

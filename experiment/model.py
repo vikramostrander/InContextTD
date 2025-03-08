@@ -13,7 +13,7 @@ from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
 sys.path.append('s4')
-from src.models.sequence.modules.s4block import S4Block
+from src.models.sequence.backbones.block import SequenceResidualBlock as S4Block
 sys.path.remove('s4')
 
 from utils import stack_four
@@ -230,8 +230,8 @@ class MambaSSM(nn.Module):
         '''
         d: feature dimension
         l: number of layers
-        norm: normalization function (identity or layer)
         device: must be cuda (nvidia gpu required)
+        norm: normalization function (layer or none)
         mode: 'auto' or 'sequential'
         '''
         super(MambaSSM, self).__init__()
@@ -262,67 +262,57 @@ class MambaSSM(nn.Module):
         '''
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
-        if self.l == 1:
-            Z = self.norm(Z)
-            Z = self.layer(Z, inference_params=None)
-        else:
-            residual = None
-            if self.mode == 'auto':
-                for _ in range(self.l):
-                    # residual = (Z + residual) if residual is not None else Z
-                    # Z = self.norm(residual)
-                    # Z = self.layer(Z, inference_params=self.inference_params)
-                    Z, residual = self.layer(Z, residual)
-                Z = (Z + residual) if residual is not None else Z
-            else:
-                for layer in self.layers:
-                    # residual = (Z + residual) if residual is not None else Z
-                    # Z = self.norm(residual)
-                    # Z = layer(Z, inference_params=self.inference_params)
-                    Z, residual = layer(Z, residual)
-                Z = (Z + residual) if residual is not None else Z
-        Z.squeeze_(0)
-        Z.transpose_(0, 1)
-        return Z
-    
-    def reset_state(self):
-        self.inference_params = InferenceParams(1, 1)
-        if self.mode == 'auto':
-            state = self.layer.allocate_inference_cache(
-                self.inference_params.max_batch_size, 
-                self.inference_params.max_seqlen
-            )
-            self.inference_params.key_value_memory_dict[0] = state
-        else:
-            for i, layer in enumerate(self.layers):
-                state = layer.allocate_inference_cache(
-                    self.inference_params.max_batch_size, 
-                    self.inference_params.max_seqlen
-                )
-                self.inference_params.key_value_memory_dict[i] = state
-    
-    def step(self, Z):
-        '''
-        Z: prompt of shape (2*d+1,1)
-        '''
-        assert(Z.shape[1] == 1)
-        Z.transpose_(0, 1)
-        Z.unsqueeze_(0)
         residual = None
-        conv_state, ssm_state = self._get_states_from_cache(self.inference_params, 1)
         if self.mode == 'auto':
             for _ in range(self.l):
-                residual = (Z + residual) if residual is not None else Z
-                Z = self.norm(residual)
-                Z, conv_state, ssm_state = self.layer.step(Z, conv_state, ssm_state)
+                Z, residual = self.layer(Z, residual)
+            Z = (Z + residual) if residual is not None else Z
         else:
             for layer in self.layers:
-                residual = (Z + residual) if residual is not None else Z
-                Z = self.norm(residual)
-                Z, conv_state, ssm_state = layer.step(Z, conv_state, ssm_state)
+                Z, residual = layer(Z, residual)
+            Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
+    
+    # def reset_state(self):
+    #     self.inference_params = InferenceParams(1, 1)
+    #     if self.mode == 'auto':
+    #         state = self.layer.allocate_inference_cache(
+    #             self.inference_params.max_batch_size, 
+    #             self.inference_params.max_seqlen
+    #         )
+    #         self.inference_params.key_value_memory_dict[0] = state
+    #     else:
+    #         for i, layer in enumerate(self.layers):
+    #             state = layer.allocate_inference_cache(
+    #                 self.inference_params.max_batch_size, 
+    #                 self.inference_params.max_seqlen
+    #             )
+    #             self.inference_params.key_value_memory_dict[i] = state
+    
+    # def step(self, Z):
+    #     '''
+    #     Z: prompt of shape (2*d+1,1)
+    #     '''
+    #     assert(Z.shape[1] == 1)
+    #     Z.transpose_(0, 1)
+    #     Z.unsqueeze_(0)
+    #     residual = None
+    #     conv_state, ssm_state = self._get_states_from_cache(self.inference_params, 1)
+    #     if self.mode == 'auto':
+    #         for _ in range(self.l):
+    #             residual = (Z + residual) if residual is not None else Z
+    #             Z = self.norm(residual)
+    #             Z, conv_state, ssm_state = self.layer.step(Z, conv_state, ssm_state)
+    #     else:
+    #         for layer in self.layers:
+    #             residual = (Z + residual) if residual is not None else Z
+    #             Z = self.norm(residual)
+    #             Z, conv_state, ssm_state = layer.step(Z, conv_state, ssm_state)
+    #     Z.squeeze_(0)
+    #     Z.transpose_(0, 1)
+    #     return Z
     
     def fit_value_func(self,
                        context: torch.Tensor,
@@ -355,50 +345,55 @@ class S4SSM(nn.Module):
     def __init__(self,
                  d: int,
                  l: int,
-                 activation='gelu',
+                 device: torch.device,
+                 norm='none',
                  mode='auto'):
+        '''
+        d: feature dimension
+        l: number of layers
+        device: cuda or cpu
+        norm: normalization function (layer or none)
+        mode: 'auto' or 'sequential'
+        '''
         super(S4SSM, self).__init__()
         self.d = d
         self.l = l
+        self.device = device
         self.mode = mode
-        assert activation in {'gelu', 'identity', 'elu', 'tanh', 'relu'}
+        self.norm = norm if norm == 'layer' else None
         if mode == 'auto':
-            self.layer = S4Block(2*d+1, activation=activation)
-            self.norm = nn.LayerNorm(2*d+1)
+            self.layer = S4Block(2*d+1, layer='s4', residual='residual', 
+                                 norm=self.norm, transposed=True)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                S4Block(2*d+1, activation=activation)
+                S4Block(2*d+1, layer='s4', residual='residual', 
+                        norm=self.norm, transposed=True)
             for _ in range(l)])
-            self.norms = nn.ModuleList([
-                nn.LayerNorm(2*d+1) 
-            for _ in range(l)])
-        elif mode == 'standalone':
-            self.layer = S4Block(2*d+1, activation=activation)
         else:
             raise ValueError('mode must be either auto or sequential')
 
     def forward(self, Z):
+        '''
+        Z: prompt of shape (2*d+1,)
+        '''
         Z.unsqueeze_(0)
         if self.mode == 'auto':
             for _ in range(self.l):
-                residual = Z
                 Z, _ = self.layer(Z)
-                Z = Z + residual
-                Z = self.norm(Z.transpose(-1, -2)).transpose(-1, -2)
         elif self.mode == 'sequential':
-            for layer, norm in zip(self.layers, self.norms):
-                residual = Z
+            for layer in self.layers:
                 Z, _ = layer(Z)
-                Z = Z + residual
-                Z = norm(Z.transpose(-1, -2)).transpose(-1, -2)
-        else:
-            Z, _ = self.layer(Z)
         Z.squeeze_(0)
         return Z
     
     def fit_value_func(self,
                        context: torch.Tensor,
                        phi: torch.Tensor):
+        '''
+        context: the context of shape (2*d+1, n)
+        phi: features of shape (s, d)
+        returns the fitted value function given the context in shape (s, 1)
+        '''
         v_vec = []
         for feature in phi:
             feature_col = torch.zeros((2 * self.d + 1, 1), device=phi.get_device())
@@ -410,8 +405,12 @@ class S4SSM(nn.Module):
         return s4_v
     
     def pred_v(self, Z):
-        Z_s4 = self.forward(Z.clone())
-        return Z_s4[-1][-1] if Z_s4[-1][-1] != 0 else 1e-30
+        '''
+        Z: prompt of shape (2*d+1, n+1)
+        predict the value of the query feature
+        '''
+        Z_s4 = self.forward(Z)
+        return Z_s4[-1][-1]
 
 
 def get_activation(activation: str) -> nn.Module:

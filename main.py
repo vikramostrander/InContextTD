@@ -49,7 +49,7 @@ if __name__ == '__main__':
                         help='custom MRP presets', default='none', 
                         choices=['none', 'boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
-                        help='model type', default='tf', choices=['tf', 'mamba'])
+                        help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--mode', type=str,
                         help='training mode: auto-regressive or sequential', 
                         default='auto', choices=['auto', 'sequential'])
@@ -104,7 +104,6 @@ if __name__ == '__main__':
     if args.mrp_config != 'none':
         args.mrp_env = args.mrp_config
         if args.mrp_config == 'boyan':
-            args.dim_features = 4
             args.num_states = 10
             args.context_length = 30
             args.n_mrps = 4000
