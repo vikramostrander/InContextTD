@@ -70,10 +70,10 @@ if __name__ == '__main__':
                         help='learning rate', default=0.001)
     parser.add_argument('--weight_decay', type=float,
                         help='regularization term', default=1e-6)
-    parser.add_argument('--log_interval', type=int,
-                        help='logging interval', default=10)
     parser.add_argument('--loss', type=str, default='mstde',
                         help='loss options are mstde or msve_true or msve_mc')
+    parser.add_argument('--log_interval', type=int,
+                        help='logging interval', default=10)
     parser.add_argument('--seed', type=int, nargs='+',
                         help='random seed', default=list(range(0, 10)))
     parser.add_argument('--save_dir', type=str,
@@ -129,12 +129,12 @@ if __name__ == '__main__':
         activation=args.activation,
         norm=args.norm,
         sample_weight=args.representable,
-        lr=args.lr,
-        weight_decay=args.weight_decay,
-        training_loss=args.loss,
         n_mrps=args.n_mrps,
         mini_batch_size=args.batch_size,
         n_batch_per_mrp=args.n_batch_per_mrp,
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+        training_loss=args.loss,
         log_interval=args.log_interval,
         save_dir=save_dir,
         save_model=args.save_model,
