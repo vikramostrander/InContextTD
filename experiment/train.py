@@ -108,14 +108,14 @@ def train(d: int,
           sample_weight: bool = False,
           lr: float = 0.001,
           weight_decay=1e-6,
+          training_loss: str = 'mstde',
           n_mrps: int = 1000,
           mini_batch_size: int = 64,
           n_batch_per_mrp: int = 5,
           log_interval: int = 10,
           save_dir: str = None,
           save_model: bool = False,
-          random_seed: int = 2,
-          training_loss: str = 'mstde') -> None:
+          random_seed: int = 2) -> None:
     '''
     d: feature dimension
     s: number of states
