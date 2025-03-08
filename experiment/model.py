@@ -9,6 +9,7 @@ import sys
 
 sys.path.append('mamba')
 from mamba_ssm.modules.mamba_simple import Mamba
+from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
 sys.path.append('s4')
@@ -239,13 +240,19 @@ class MambaSSM(nn.Module):
         self.device = device
         self.mode = mode
         self.inference_params = None
-        self.norm = nn.LayerNorm(2*d+1) if norm == 'layer' else nn.Identity(2*d+1)
+        self.norm = nn.LayerNorm if norm == 'layer' else nn.Identity
         if mode == 'auto':
-            self.layer = Mamba(2*d+1, layer_idx=0, device=self.device)
+            self.layer = MambaBlock(2*d+1, Mamba, self.norm)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                Mamba(2*d+1, layer_idx=i, device=self.device)
-            for i in range(l)])
+                MambaBlock(2*d+1, Mamba, self.norm)
+            for _ in range(l)])
+        # if mode == 'auto':
+        #     self.layer = Mamba(2*d+1, layer_idx=0, device=self.device)
+        # elif mode == 'sequential':
+        #     self.layers = nn.ModuleList([
+        #         Mamba(2*d+1, layer_idx=i, device=self.device)
+        #     for i in range(l)])
         else:
             raise ValueError('mode must be auto or sequential')
 
@@ -256,20 +263,24 @@ class MambaSSM(nn.Module):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         if self.l == 1:
+            Z = self.norm(Z)
             Z = self.layer(Z, inference_params=None)
         else:
             residual = None
             if self.mode == 'auto':
                 for _ in range(self.l):
-                    residual = (Z + residual) if residual is not None else Z
-                    Z = self.norm(residual)
-                    Z = self.layer(Z, inference_params=self.inference_params)
+                    # residual = (Z + residual) if residual is not None else Z
+                    # Z = self.norm(residual)
+                    # Z = self.layer(Z, inference_params=self.inference_params)
+                    Z, residual = self.layer(Z, residual)
+                Z = (Z + residual) if residual is not None else Z
             else:
                 for layer in self.layers:
-                    residual = (Z + residual) if residual is not None else Z
-                    Z = self.norm(residual)
-                    Z = layer(Z, inference_params=self.inference_params)
-            Z = (Z + residual) if residual is not None else Z
+                    # residual = (Z + residual) if residual is not None else Z
+                    # Z = self.norm(residual)
+                    # Z = layer(Z, inference_params=self.inference_params)
+                    Z, residual = layer(Z, residual)
+                Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
