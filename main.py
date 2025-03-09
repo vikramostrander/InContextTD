@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_interval', type=int,
                         help='logging interval', default=10)
     parser.add_argument('--seed', type=int, nargs='+',
-                        help='random seed', default=list(range(0, 10)))
+                        help='random seed', default=list(range(0, 30)))
     parser.add_argument('--save_dir', type=str,
                         help='directory to save logs', default=None)
     parser.add_argument('--save_model', action='store_true',
@@ -108,7 +108,10 @@ if __name__ == '__main__':
             args.num_layers = 15
             args.num_states = 10
             args.context_length = 30
-            args.n_mrp = 4000
+            args.n_mrps = 4000
+            args.seed = [0]
+            args.save_model = True
+            args.no_parallel = True
         if args.mrp_config == 'boyan':
             args.mrp_env = 'boyan'
             args.num_states = 10

@@ -57,3 +57,17 @@ class Loop(MRP):
         next_state = np.random.choice(self.n_states, p=self.P[state])
         reward = self.r[state, 0]
         return next_state, reward
+    
+    def sample_stationary(self) -> int:
+        return np.random.choice(self.n_states, p=self.steady_d)
+    
+    def copy(self) -> 'Loop':
+        loop = Loop(self.n_states, self.gamma)
+        loop.P = self.P.copy()
+        loop.mu = self.mu.copy()
+        loop.r = self.r.copy()
+        loop.v = self.v.copy()
+        loop.steady_d = self.steady_d.copy()
+        if hasattr(self, 'w'):
+            loop.w = self.w.copy()
+        return loop

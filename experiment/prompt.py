@@ -194,7 +194,7 @@ class MRPPromptGenerator:
                                   weight=w, X=self.feat.phi)
         elif self.mrp_class == 'loop':
             self.mrp = Loop(n_states=self.s, gamma=self.gamma, threshold=threshold,
-                            weight=w, Phi=self.feat.phi)
+                            weight=w, phi=self.feat.phi)
         elif self.mrp_class == 'cartpole':
             fourth_root_s = self.s**(1/4)
             if not fourth_root_s.is_integer():
