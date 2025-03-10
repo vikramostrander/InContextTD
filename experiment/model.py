@@ -200,6 +200,25 @@ class HardLinearTransformer(nn.Module):
         return -Z_tf[-1, -1]
     
 
+def get_activation(activation: str) -> nn.Module:
+    if activation == 'relu':
+        return nn.ReLU()
+    elif activation == 'softmax':
+        return nn.Softmax(dim=1)
+    elif activation == 'tanh':
+        return nn.Tanh()
+    elif activation == 'leaky_relu':
+        return nn.LeakyReLU()
+    elif activation == 'elu':
+        return nn.ELU()
+    elif activation == 'selu':
+        return nn.SELU()
+    elif activation == 'identity':
+        return nn.Identity()
+    else:
+        raise ValueError(f"Invalid activation function: {activation}")
+    
+
 @dataclass
 class InferenceParams:
     """Inference parameters that are passed to the main model in order
@@ -225,13 +244,11 @@ class MambaSSM(nn.Module):
                  d: int,
                  l: int,
                  device: torch.device,
-                 norm='none',
                  mode='auto'):
         '''
         d: feature dimension
         l: number of layers
         device: must be cuda (nvidia gpu required)
-        norm: normalization function (layer or none)
         mode: 'auto' or 'sequential'
         '''
         super(MambaSSM, self).__init__()
@@ -239,20 +256,13 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        self.inference_params = None
-        self.norm = nn.LayerNorm if norm == 'layer' else nn.Identity
+        self.ip = None
         if mode == 'auto':
-            self.layer = MambaBlock(2*d+1, Mamba, self.norm)
+            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                MambaBlock(2*d+1, Mamba, self.norm)
+                MambaBlock(2*d+1, Mamba, nn.Identity)
             for _ in range(l)])
-        # if mode == 'auto':
-        #     self.layer = Mamba(2*d+1, layer_idx=0, device=self.device)
-        # elif mode == 'sequential':
-        #     self.layers = nn.ModuleList([
-        #         Mamba(2*d+1, layer_idx=i, device=self.device)
-        #     for i in range(l)])
         else:
             raise ValueError('mode must be auto or sequential')
 
@@ -265,12 +275,10 @@ class MambaSSM(nn.Module):
         residual = None
         if self.mode == 'auto':
             for _ in range(self.l):
-                Z, residual = self.layer(Z, residual)
-            Z = (Z + residual) if residual is not None else Z
+                Z, residual = self.layer(Z, residual, inference_params=self.ip)
         else:
             for layer in self.layers:
-                Z, residual = layer(Z, residual)
-            Z = (Z + residual) if residual is not None else Z
+                Z, residual = layer(Z, residual, inference_params=self.ip)
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
@@ -346,13 +354,11 @@ class S4SSM(nn.Module):
                  d: int,
                  l: int,
                  device: torch.device,
-                 norm='none',
                  mode='auto'):
         '''
         d: feature dimension
         l: number of layers
         device: cuda or cpu
-        norm: normalization function (layer or none)
         mode: 'auto' or 'sequential'
         '''
         super(S4SSM, self).__init__()
@@ -360,14 +366,13 @@ class S4SSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        self.norm = norm if norm == 'layer' else None
         if mode == 'auto':
             self.layer = S4Block(2*d+1, layer='s4', residual='residual', 
-                                 norm=self.norm, transposed=True)
+                                 norm=None, transposed=True)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
                 S4Block(2*d+1, layer='s4', residual='residual', 
-                        norm=self.norm, transposed=True)
+                        norm=None, transposed=True)
             for _ in range(l)])
         else:
             raise ValueError('mode must be either auto or sequential')
@@ -411,22 +416,3 @@ class S4SSM(nn.Module):
         '''
         Z_s4 = self.forward(Z)
         return Z_s4[-1][-1]
-
-
-def get_activation(activation: str) -> nn.Module:
-    if activation == 'relu':
-        return nn.ReLU()
-    elif activation == 'softmax':
-        return nn.Softmax(dim=1)
-    elif activation == 'tanh':
-        return nn.Tanh()
-    elif activation == 'leaky_relu':
-        return nn.LeakyReLU()
-    elif activation == 'elu':
-        return nn.ELU()
-    elif activation == 'selu':
-        return nn.SELU()
-    elif activation == 'identity':
-        return nn.Identity()
-    else:
-        raise ValueError(f"Invalid activation function: {activation}")

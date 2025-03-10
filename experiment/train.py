@@ -104,7 +104,6 @@ def train(d: int,
           model_name: str = 'tf',
           mode: str = 'auto',
           activation: str = 'identity',
-          norm: str = 'none',
           sample_weight: bool = False,
           n_mrps: int = 1000,
           mini_batch_size: int = 64,
@@ -126,7 +125,6 @@ def train(d: int,
     model_name: type of model (e.g. tf, mamba, s4)
     mode: 'auto', 'sequential', or 'standalone'
     activation: activation function (e.g. softmax, identity, relu)
-    norm: normalization function for mamba (none or layer)
     sample_weight: sample a random true weight vector
     lr: learning rate
     weight_decay: regularization
@@ -146,12 +144,12 @@ def train(d: int,
     if model_name == 'mamba':
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            model = MambaSSM(d, l, device=device, norm=norm, mode=mode).to(device)
+            model = MambaSSM(d, l, device=device, mode=mode).to(device)
         else:
             raise Exception("error: cuda not found, required for mamba")
     elif model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        model = S4SSM(d, l, device=device, norm=norm, mode=mode).to(device)
+        model = S4SSM(d, l, device=device, mode=mode).to(device)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)

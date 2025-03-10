@@ -55,9 +55,6 @@ if __name__ == '__main__':
                         default='auto', choices=['auto', 'sequential'])
     parser.add_argument('--activation', type=str,
                         help='activation function for transformers', default='identity')
-    parser.add_argument('--norm', type=str,
-                        help='normalization function for SSMs', 
-                        default='none', choices=['none', 'layer'])
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
@@ -138,7 +135,6 @@ if __name__ == '__main__':
         model_name=args.model_name,
         mode=args.mode,
         activation=args.activation,
-        norm=args.norm,
         sample_weight=args.representable,
         n_mrps=args.n_mrps,
         mini_batch_size=args.batch_size,
@@ -155,7 +151,6 @@ if __name__ == '__main__':
         print(f'Training {args.model_name} on {args.mrp_env} MRP.')
         print(f'Training {args.mode} model of {args.num_layers} layer(s).')
         print(f'Activation function: {args.activation}')
-        print(f'Normalization function: {args.norm}')
         print(f"Feature dimension: {args.dim_feature}")
         print(f"Context length: {args.context_length}")
         print(f"Number of states in the MRP: {args.num_states}")

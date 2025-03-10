@@ -3,6 +3,7 @@ from argparse import ArgumentParser, Namespace
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scienceplots
 import torch
 from tqdm import tqdm
 
@@ -26,15 +27,9 @@ if __name__ == '__main__':
                         help='MRP environment', default='loop', 
                         choices=['loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, 
-                        help='model type', default='tf', choices=['tf', 'mamba'])
+                        help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--model_path', type=str,
                         help='path to trained model', default=None)
-    parser.add_argument('--mode', type=str,
-                        help='training mode: auto-regressive or sequential', 
-                        default='auto', choices=['auto', 'sequential'])
-    parser.add_argument('--norm', type=str,
-                        help='normalization function for SSMs', 
-                        default='none', choices=['none', 'layer'])
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
     parser.add_argument('--lr', type=float,
@@ -81,12 +76,11 @@ if __name__ == '__main__':
             raise Exception("error: trained model required for mamba")
     elif args.model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        if not args.model_path:
+            raise Exception("error: trained model required for s4")
         model = torch.load(args.model_path).to(device)
-    elif args.model_name == 'tf':
-        device = torch.device('cpu')
-        model = torch.load(args.model_path)
     else:
-        raise Exception("error: model must be either tf, mamba, or s4")
+        model = None    # tf by default
 
     all_msves = []  # (n_mrps, len(context_lengths))
     for _ in tqdm(range(n_mrps)):
@@ -102,15 +96,17 @@ if __name__ == '__main__':
         for n in context_lengths:
             prompt = MRPPrompt(d, n, gamma, mrp, feature)
             prompt.reset()
-            ctxt = prompt.context()
-            v = model.fit_value_func(
-                ctxt.to(device), 
-                torch.from_numpy(feature.phi).to(device)
-            ).detach().cpu().numpy()
-            # w = torch.zeros((d, 1))
-            # for _ in range(l):
-            #     w, _ = prompt.td_update(w, lr=alpha)
-            # v = feature.phi @ w.numpy()
+            if model is not None:
+                ctxt = prompt.context()
+                v = model.fit_value_func(
+                    ctxt.to(device), 
+                    torch.from_numpy(feature.phi).to(device)
+                ).detach().cpu().numpy()
+            else:
+                w = torch.zeros((d, 1))
+                for _ in range(l):
+                    w, _ = prompt.td_update(w, lr=alpha)
+                v = feature.phi @ w.numpy()
             msve = compute_msve(v, mrp.v, mrp.steady_d)
             msve_n.append(msve)
         all_msves.append(msve_n)
@@ -129,6 +125,7 @@ if __name__ == '__main__':
                      color='b', alpha=0.2)
     plt.xlabel('Context Length (t)')
     plt.ylabel('MSVE', rotation=0, labelpad=30)
+    plt.ylim(ymin=0)
     plt.grid(True)
     fig_path = os.path.join(save_path, 'msve_vs_context_length.pdf')
     plt.savefig(fig_path, dpi=300, format='pdf')
