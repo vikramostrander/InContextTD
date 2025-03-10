@@ -9,7 +9,6 @@ import sys
 
 sys.path.append('mamba')
 from mamba_ssm.modules.mamba_simple import Mamba
-from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
 sys.path.append('s4')
@@ -256,12 +255,11 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        self.ip = None
         if mode == 'auto':
-            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
+            self.layer = Mamba(2*d+1, device=device)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                MambaBlock(2*d+1, Mamba, nn.Identity)
+                Mamba(2*d+1, device=device)
             for _ in range(l)])
         else:
             raise ValueError('mode must be auto or sequential')
@@ -275,52 +273,18 @@ class MambaSSM(nn.Module):
         residual = None
         if self.mode == 'auto':
             for _ in range(self.l):
-                Z, residual = self.layer(Z, residual, inference_params=self.ip)
+                residual = (Z + residual) if residual is not None else Z
+                Z = residual
+                Z = self.layer(Z)
         else:
             for layer in self.layers:
-                Z, residual = layer(Z, residual, inference_params=self.ip)
+                residual = (Z + residual) if residual is not None else Z
+                Z = residual
+                Z = layer(Z)
+        Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
         return Z
-    
-    # def reset_state(self):
-    #     self.inference_params = InferenceParams(1, 1)
-    #     if self.mode == 'auto':
-    #         state = self.layer.allocate_inference_cache(
-    #             self.inference_params.max_batch_size, 
-    #             self.inference_params.max_seqlen
-    #         )
-    #         self.inference_params.key_value_memory_dict[0] = state
-    #     else:
-    #         for i, layer in enumerate(self.layers):
-    #             state = layer.allocate_inference_cache(
-    #                 self.inference_params.max_batch_size, 
-    #                 self.inference_params.max_seqlen
-    #             )
-    #             self.inference_params.key_value_memory_dict[i] = state
-    
-    # def step(self, Z):
-    #     '''
-    #     Z: prompt of shape (2*d+1,1)
-    #     '''
-    #     assert(Z.shape[1] == 1)
-    #     Z.transpose_(0, 1)
-    #     Z.unsqueeze_(0)
-    #     residual = None
-    #     conv_state, ssm_state = self._get_states_from_cache(self.inference_params, 1)
-    #     if self.mode == 'auto':
-    #         for _ in range(self.l):
-    #             residual = (Z + residual) if residual is not None else Z
-    #             Z = self.norm(residual)
-    #             Z, conv_state, ssm_state = self.layer.step(Z, conv_state, ssm_state)
-    #     else:
-    #         for layer in self.layers:
-    #             residual = (Z + residual) if residual is not None else Z
-    #             Z = self.norm(residual)
-    #             Z, conv_state, ssm_state = layer.step(Z, conv_state, ssm_state)
-    #     Z.squeeze_(0)
-    #     Z.transpose_(0, 1)
-    #     return Z
     
     def fit_value_func(self,
                        context: torch.Tensor,
