@@ -8,6 +8,7 @@ import torch
 from tqdm import tqdm
 
 from experiment.prompt import Feature, MRPPrompt
+from experiment.model import MambaSSM, S4SSM
 from MRP.loop import Loop
 from MRP.boyan import BoyanChain
 from utils import compute_msve, set_seed
@@ -70,15 +71,16 @@ if __name__ == '__main__':
         if not torch.cuda.is_available():
             raise Exception("error: cuda not found, required for mamba")
         device = torch.device('cuda')
-        if args.model_path:
-            model = torch.load(args.model_path).to(device)
-        else: 
+        if not args.model_path:
             raise Exception("error: trained model required for mamba")
+        model = MambaSSM(d, l, device=device, mode='sequential').to(device)
+        model.load_state_dict(torch.load(args.model_path))
     elif args.model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         if not args.model_path:
             raise Exception("error: trained model required for s4")
-        model = torch.load(args.model_path).to(device)
+        model = S4SSM(d, l, device=device, mode='sequential').to(device)
+        model.load_state_dict(torch.load(args.model_path))
     else:
         model = None    # tf by default
 

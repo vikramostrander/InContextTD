@@ -289,4 +289,4 @@ def train(d: int,
 
     # Save model weights
     if random_seed == 0 and save_model:
-        torch.save(model, os.path.join(save_dir, 'model.pth'))
+        torch.save(model.state_dict(), os.path.join(save_dir, 'state_dict.pth'))
