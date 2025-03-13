@@ -49,7 +49,7 @@ if __name__ == '__main__':
                         help='custom MRP presets', default='none', 
                         choices=['none', 'demo', 'boyan', 'lake', 'cartpole'])
     parser.add_argument('-model', '--model_name', type=str, 
-                        help='model type', default='tf', choices=['tf', 'mamba', 's4', 'rnn'])
+                        help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--mode', type=str,
                         help='training mode: auto-regressive or sequential', 
                         default='auto', choices=['auto', 'sequential'])
