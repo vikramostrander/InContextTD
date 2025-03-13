@@ -9,6 +9,7 @@ import sys
 
 sys.path.append('mamba')
 from mamba_ssm.modules.mamba_simple import Mamba
+from mamba_ssm.modules.block import Block as MambaBlock
 sys.path.remove('mamba')
 
 sys.path.append('s4')
@@ -255,11 +256,13 @@ class MambaSSM(nn.Module):
         self.l = l
         self.device = device
         self.mode = mode
-        if mode == 'auto':
-            self.layer = Mamba(2*d+1, device=device)
+        if self.l == 1:
+            self.layer = Mamba(2*d+1)
+        elif mode == 'auto':
+            self.layer = MambaBlock(2*d+1, Mamba, nn.Identity)
         elif mode == 'sequential':
             self.layers = nn.ModuleList([
-                Mamba(2*d+1, device=device)
+                MambaBlock(2*d+1, Mamba, nn.Identity)
             for _ in range(l)])
         else:
             raise ValueError('mode must be auto or sequential')
@@ -271,16 +274,14 @@ class MambaSSM(nn.Module):
         Z.transpose_(0, 1)
         Z.unsqueeze_(0)
         residual = None
-        if self.mode == 'auto':
+        if self.l == 1:
+            Z = self.layer(Z)
+        elif self.mode == 'auto':
             for _ in range(self.l):
-                residual = (Z + residual) if residual is not None else Z
-                Z = residual
-                Z = self.layer(Z)
+                Z, residual = self.layer(Z, residual)
         else:
             for layer in self.layers:
-                residual = (Z + residual) if residual is not None else Z
-                Z = residual
-                Z = layer(Z)
+                Z, residual = layer(Z, residual)
         Z = (Z + residual) if residual is not None else Z
         Z.squeeze_(0)
         Z.transpose_(0, 1)
@@ -380,3 +381,43 @@ class S4SSM(nn.Module):
         '''
         Z_s4 = self.forward(Z)
         return Z_s4[-1][-1]
+
+
+class RNN(nn.Module):
+    def __init__(self, d: int, l: int, activation: str = 'tanh'):
+        '''
+        d: feature dimension
+        l: number of layers
+        activation: activation function
+        '''
+        super(RNN, self).__init__()
+        self.d = d
+        self.rnn = nn.RNN(input_size=2*d+1,
+                          hidden_size=d,
+                          num_layers=l,
+                          nonlinearity=activation,
+                          batch_first=True)
+        self.linear = nn.Linear(d, 1)
+
+    def forward(self, Z):
+        _, hn = self.rnn(Z)
+        return self.linear(hn[-1])
+
+    def fit_value_func(self,
+                       context: torch.Tensor,
+                       phi: torch.Tensor) -> torch.Tensor:
+        '''
+        context: the context of shape (2*d+1, n)
+        phi: features of shape (s, d)
+        returns the fitted value function given the context in shape (s, 1)
+        '''
+        n = context.shape[1]
+        input = []
+        for feature in phi:
+            query_col = torch.zeros((2*self.d+1, 1))
+            query_col[:self.d, 0] = feature
+            # integrate the query feature
+            Z = torch.cat([context, query_col], dim=1)
+            input.append(Z)
+        input = torch.vstack(input)
+        return self.forward(input)

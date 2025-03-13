@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 
-from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM
+from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM, RNN
 from experiment.prompt import MRPPromptGenerator
 from MRP.mrp import MRP
 from utils import (set_seed, compute_msve, cos_sim, solve_msve_weight)
@@ -150,6 +150,9 @@ def train(d: int,
     elif model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model = S4SSM(d, l, device=device, mode=mode).to(device)
+    elif model_name == 'rnn':
+        device = torch.device('cpu')
+        model = RNN(d, l)
     else:
         device = torch.device('cpu')
         model = Transformer(d, n, l, activation=activation, mode=mode)
@@ -289,4 +292,7 @@ def train(d: int,
 
     # Save model weights
     if random_seed == 0 and save_model:
-        torch.save(model.state_dict(), os.path.join(save_dir, 'state_dict.pth'))
+        if model_name == 'mamba':
+            torch.save(model, os.path.join(save_dir, 'model.pth'))
+        else:
+            torch.save(model.state_dict(), os.path.join(save_dir, 'state_dict.pth'))
