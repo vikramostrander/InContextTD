@@ -73,8 +73,7 @@ if __name__ == '__main__':
         device = torch.device('cuda')
         if not args.model_path:
             raise Exception("error: trained model required for mamba")
-        model = MambaSSM(d, l, device=device, mode='sequential').to(device)
-        model.load_state_dict(torch.load(args.model_path))
+        model = torch.load(args.model_path)
     elif args.model_name == 's4':
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         if not args.model_path:
