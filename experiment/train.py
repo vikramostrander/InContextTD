@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 
-from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM, RNN
+from experiment.model import HardLinearTransformer, Transformer, MambaSSM, S4SSM
 from experiment.prompt import MRPPromptGenerator
 from MRP.mrp import MRP
 from utils import (set_seed, compute_msve, cos_sim, solve_msve_weight)
