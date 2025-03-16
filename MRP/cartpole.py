@@ -8,7 +8,7 @@ from utils import compute_steady_dist
 
 
 class CartPoleEnvironment(MRP):
-    """Credit : https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py#L7"""
+    """Credit : https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py"""
 
     def __init__(self, dim, bins_per_feature: int = 2, gamma: float = 0.9, weight: np.ndarray = None, X: np.ndarray = None):
 
