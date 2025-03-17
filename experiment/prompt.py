@@ -3,11 +3,11 @@ from collections import deque
 import numpy as np
 import torch
 
+from MRP.mrp import MRP
 from MRP.boyan import BoyanChain
 from MRP.loop import Loop
-from MRP.lake import FrozenLake
-from MRP.mrp import MRP
 from MRP.cartpole import CartPoleEnvironment
+from MRP.mountaincar import MountainCarEnvironment
 from typing import Tuple
 
 
@@ -78,7 +78,6 @@ class MRPPrompt:
 
             self.reward_window.append(r)
             self.s = s_prime
-        #import pdb; pdb.set_trace()
         self._query_s = self.s
         self._store_data()
 
@@ -196,14 +195,19 @@ class MRPPromptGenerator:
             self.mrp = Loop(n_states=self.s, gamma=self.gamma, threshold=threshold,
                             weight=w, phi=self.feat.phi)
         elif self.mrp_class == 'cartpole':
-            fourth_root_s = self.s**(1/4)
-            if not fourth_root_s.is_integer():
+            d_root_s = self.s**(1/self.d)
+            if not d_root_s.is_integer():
                 raise ValueError("The number of states must be a perfect power of the feature dimension")
-            fourth_root_s = int(fourth_root_s)
-            self.mrp = CartPoleEnvironment(dim=self.d, bins_per_feature=fourth_root_s,
+            d_root_s = int(d_root_s)
+            self.mrp = CartPoleEnvironment(dim=self.d, bins_per_feature=d_root_s,
                                            gamma=self.gamma, weight=w, X=self.feat.phi)
-        elif self.mrp_class == 'lake':
-            self.mrp = FrozenLake(n_states=self.s, gamma=self.gamma)
+        elif self.mrp_class == 'mountaincar':
+            d_root_s = self.s**(1/self.d)
+            if not d_root_s.is_integer():
+                raise ValueError("The number of states must be a perfect power of the feature dimension")
+            d_root_s = int(d_root_s)
+            self.mrp = MountainCarEnvironment(dim=self.d, bins_per_feature=d_root_s,
+                                              gamma=self.gamma, weight=w, X=self.feat.phi)
         else:
             raise ValueError("Unknown MRP type")
 

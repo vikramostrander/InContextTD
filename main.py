@@ -44,10 +44,10 @@ if __name__ == '__main__':
                         help='discount factor', default=0.9)
     parser.add_argument('-mrp', '--mrp_env', type=str,
                         help='MRP environment', default='boyan', 
-                        choices=['boyan', 'lake', 'cartpole'])
+                        choices=['loop', 'boyan', 'cartpole', 'mountaincar'])
     parser.add_argument('--mrp_config', type=str,
                         help='custom MRP presets', default='none', 
-                        choices=['none', 'demo', 'boyan', 'lake', 'cartpole'])
+                        choices=['none', 'demo', 'boyan', 'cartpole', 'mountaincar'])
     parser.add_argument('-model', '--model_name', type=str, 
                         help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--mode', type=str,
@@ -104,8 +104,10 @@ if __name__ == '__main__':
             args.dim_feature = 5
             args.num_layers = 15
             args.num_states = 10
-            args.context_length = 30
-            args.n_mrps = 4000
+            args.context_length = 20
+            args.mode = 'sequential'
+            args.representable = True
+            args.n_mrps = 1000
             args.seed = [0]
             args.save_model = True
             args.no_parallel = True
@@ -114,14 +116,16 @@ if __name__ == '__main__':
             args.num_states = 10
             args.context_length = 30
             args.n_mrps = 4000
-        if args.mrp_config == 'lake':
-            args.mrp_env = 'lake'
-            args.num_states = 16
-            args.context_length = 100
-            args.n_mrps = 5000
         if args.mrp_config == 'cartpole':
             args.mrp_env = 'cartpole'
+            args.dim_feature = 4
             args.num_states = 81
+            args.context_length = 100
+            args.n_mrps = 5000
+        if args.mrp_config == 'mountaincar':
+            args.mrp_env = 'mountaincar'
+            args.dim_feature = 2
+            args.num_states = 25
             args.context_length = 100
             args.n_mrps = 5000
 
@@ -168,7 +172,7 @@ if __name__ == '__main__':
         print(f'Save directory: {save_dir}')
         print(f'Random seeds: {",".join(map(str, args.seed))}')
 
-    is_linear = args.activation == 'identity'
+    is_linear = args.activation == 'identity' and args.model_name == 'tf'
 
     if args.no_parallel:
         for seed in args.seed:
