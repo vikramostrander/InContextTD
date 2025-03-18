@@ -169,7 +169,7 @@ def plot_error_data(data_dirs: str,
     ax2.fill_between(xs, mean_vf_sim - stde_vf_sim,
                      mean_vf_sim + stde_vf_sim, lw=0, alpha=0.3, color=sns.color_palette()[1])
     p = [a, b, c]
-    if hyperparams['linear']:
+    if hyperparams['linear'] and model_name == 'tf':
         ax2.legend(p, [p_.get_label() for p_ in p], frameon=True, framealpha=0.8, loc='center right').set_alpha(0.5)
     else:
         ax2.legend(p, [p_.get_label() for p_ in p], frameon=True, framealpha=0.8, loc='upper left').set_alpha(0.5)

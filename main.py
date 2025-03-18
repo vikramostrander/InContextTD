@@ -100,14 +100,13 @@ if __name__ == '__main__':
 
     if args.mrp_config != 'none':
         if args.mrp_config == 'demo':
-            args.mrp_env = 'loop'
+            args.mrp_env = 'boyan'
             args.dim_feature = 5
-            args.num_layers = 15
             args.num_states = 10
-            args.context_length = 20
+            args.context_length = 40
             args.mode = 'sequential'
             args.representable = True
-            args.n_mrps = 1000
+            args.n_mrps = 4000
             args.seed = [0]
             args.save_model = True
             args.no_parallel = True
@@ -172,7 +171,7 @@ if __name__ == '__main__':
         print(f'Save directory: {save_dir}')
         print(f'Random seeds: {",".join(map(str, args.seed))}')
 
-    is_linear = args.activation == 'identity' and args.model_name == 'tf'
+    is_linear = args.activation == 'identity'
 
     if args.no_parallel:
         for seed in args.seed:
