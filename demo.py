@@ -27,6 +27,9 @@ if __name__ == '__main__':
     parser.add_argument('-mrp', '--mrp_env', type=str,
                         help='MRP environment', default='loop', 
                         choices=['loop', 'boyan'])
+    parser.add_argument('-config', '--mrp_config', type=str,
+                        help='custom MRP presets', default='none', 
+                        choices=['none', 'loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, nargs='+',
                         help='model type(s)', default=['tf'], choices=['tf', 'mamba', 's4'])
     parser.add_argument('-path', '--model_path', type=str, nargs='+',
@@ -66,6 +69,14 @@ if __name__ == '__main__':
     context_lengths = list(range(args.min_ctxt_len,
                                  args.max_ctxt_len+1,
                                  args.ctxt_step))
+    
+    if args.mrp_config != 'none':
+        if args.mrp_config == 'loop':
+            args.mrp_env = 'loop'
+            args.dim_feature = 5
+        if args.mrp_config == 'boyan':
+            args.mrp_env = 'boyan'
+            args.dim_feature = 4
 
     assert len(args.model_name) == len(args.model_path)
     results = dict()
