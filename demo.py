@@ -73,10 +73,10 @@ if __name__ == '__main__':
     if args.mrp_config != 'none':
         if args.mrp_config == 'loop':
             args.mrp_env = 'loop'
-            args.dim_feature = 5
+            d = 5
         if args.mrp_config == 'boyan':
             args.mrp_env = 'boyan'
-            args.dim_feature = 4
+            d = 4
 
     assert len(args.model_name) == len(args.model_path)
     results = dict()
@@ -92,7 +92,7 @@ if __name__ == '__main__':
             device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
             if not model_path:
                 raise Exception("error: trained model required for s4")
-            model = S4SSM(d, l, device=device, mode='sequential').to(device)
+            model = S4SSM(d, 3, device=device, mode='sequential').to(device)
             model.load_state_dict(torch.load(model_path))
         else:
             model = None    # tf by default
