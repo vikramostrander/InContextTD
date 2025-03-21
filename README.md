@@ -15,7 +15,7 @@ Welcome to the InContextTD repository, which accompanies the paper: [Transformer
 - [License](#license)
 
 ## Introduction
-This repository provides the code to empirically demonstrate how transformers can learn to implement temporal difference (TD) methods for in-context policy evaluation. The experiments explore transformers' ability to apply TD learning during inference without requiring parameter updates.
+This repository provides the code to empirically demonstrate how different models can learn to implement temporal difference (TD) methods for in-context policy evaluation. The experiments explore different models' ability to apply TD learning during inference without requiring parameter updates.
 
 ## Dependencies
 To install the required dependencies, first clone this repository, then run the following command on the root directory of the project:
@@ -53,27 +53,75 @@ Below is a list of the command-line arguments available for `main.py`:
 - `-d`, `--dim_feature`: Feature dimension (default: 4)
 - `-s`, `--num_states`: Number of states (default: 10)
 - `-n`, `--context_length`: Context length (default: 30)
-- `-l`, `--num_layers`: Number of transformer layers (default: 3)
+- `-l`, `--num_layers`: Number of layers (default: 3)
 - `--gamma`: Discount factor (default: 0.9)
-- `--activation`: Activation function (choices: ['identity', 'softmax', 'relu'])
+- `-mrp`, `--mrp_env`: MRP environment (choices: ['loop', 'boyan', 'cartpole', 'mountaincar'], default: 'boyan')
+- `-config`, `--mrp_config`: Custom MRP presets (choices: ['none', 'demo_lp', 'demo_bc', 'boyan', 'cartpole', 'mountaincar'], default: 'none')
+- `-model`, `--model_name`: Model type (choices: ['tf', 'mamba', 's4'], default='tf')
+- `--mode`: Training mode auto-regressive or sequential (choices: ['auto', 'sequential'], default: 'auto')
+- `--activation`: Activation function for transformers (choices: ['identity', 'softmax', 'relu'], default: 'identity')
 - `--representable`: Flag to randomly sample a true weight vector that allows the value function to be fully represented by the features
 - `--n_mrps`: Number of MRPs used for training (default: 4000)
 - `--batch_size`: Mini-batch size (default: 64)
 - `--n_batch_per_mrp`: Number of mini-batches sampled per MRP (default: 5)
 - `--lr`: Learning rate (default: 0.001)
 - `--weight_decay`: Regularization term (default: 1e-6)
+- `--loss`: Loss options (choices: ['mstde', 'msve_true', 'msve_mc'], default='mstde')
 - `--log_interval`: Frequency of logging during training (default: 10)
-- `--mode`: Training mode auto-regressive or sequential (choices: ['auto', 'sequential'], default: 'auto')
 - `--seed`: Random seeds (default: list(range(1, 31)))
 - `--save_dir`: Directory to save logs (default: None)
+- `--save_model`: Flag to save trained model for demo script
 - `--suffix`: Suffix to append to the log save directory (default: None)
 - `--gen_gif`: Flag to generate a GIF showing the evolution of weights (under construction)
+- `--no_parallel`: Flag to disable multiprocessing
 - `-v`, `--verbose`: Flag to print detailed training progress
+
+Below is a list of configurations (set with `-config`)
+- 'demo_lp': Generate a model in the 'loop' environment for demo script
+  - `-mrp` = 'loop'
+  - `-d` = 5
+  - `-s` = 10
+  - `-n` = 40
+  - `--mode` = 'sequential'
+  - `--representable`
+  - `--n_mrps` = 4000
+  - `--seed` = [0]
+  - `--save_model`
+  - `--no_parallel`
+- 'demo_bc': Generate a model in the 'boyan' environment for demo script
+  - `-mrp` = 'boyan'
+  - `-d` = 4
+  - `-s` = 10
+  - `-n` = 40
+  - `--mode` = 'sequential'
+  - `--representable`
+  - `--n_mrps` = 4000
+  - `--seed` = [0]
+  - `--save_model`
+  - `--no_parallel`
+- 'boyan': Configuration for 'boyan' environment
+  - `-mrp` = 'boyan'
+  - `-d` = 4
+  - `-s` = 10
+  - `-n` = 30
+  - `--n_mrps` = 4000
+- 'cartpole': Configuration for 'cartpole' environment
+  - `-mrp` = 'cartpole'
+  - `-d` = 4
+  - `-s` = 81
+  - `-n` = 100
+  - `--n_mrps` = 5000
+- 'mountaincar': Configuration for 'mountaincar' environment
+  - `-mrp` = 'mountaincar'
+  - `-d` = 2
+  - `-s` = 25
+  - `-n` = 100
+  - `--n_mrps` = 5000
 
 If no `--save_dir` is specified, logs will be saved in `./logs/YYYY-MM-DD-HH-MM-SS`. If a `--suffix` is provided, logs will be saved in `./logs/YYYY-MM-DD-HH-MM-SS/SUFFIX`.
 
 ### Demo
-We have a demo script to demonstrate the performance of the TD algorithm implemented by the linear transformer under our theoretical construction.
+We have a demo script to demonstrate the performance of the TD algorithm implemented by our models under our theoretical construction.
 The script generates a figure of the mean square value error (MSVE) averaged over the number of randomly generated MRPs against a sequence of increasing context lengths.
 Note that we employ fully representable value functions here to make sure the minimum MSVE is zero.
 <p align="center">
@@ -91,6 +139,11 @@ Below is a list of the command-line arguments available for `demo.py`:
 - `-smin`, `--min_state_num`: Minimum possible state number of the randomly generated MRP (default: 5)
 - `-smax`, `--max_state_num`: Maximum possible state number of the randomly generated MRP (default: 15)
 - `--gamma`: Discount factor (default: 0.9)
+- `-mrp`, `--mrp_env`: MRP environment (choices: ['loop', 'boyan'], default: 'loop')
+- `-config`, `--mrp_config`: Custom MRP presets (choices: ['none', 'loop', 'boyan'], default: 'none')
+- `-model`, `--model_name`: Model type(s) (choices: ['none', 'tf', 'mamba', 's4'], default=['none'])
+- `--activation`: Activation function for transformers (choices: ['identity', 'softmax', 'relu'], default: 'identity')
+- `-path`, `--model_path`: Path(s) to trained model (default=['none'])
 - `--lr`: learning rate of the implemented in-context TD algorithm (default: 0.2)
 - `--n_mrps`: Number of randomly generated MRPs to test on (default: 300)
 - `-nmin`, `--min_ctxt_len`: Minimum context length (default: 1)
@@ -99,10 +152,18 @@ Below is a list of the command-line arguments available for `demo.py`:
 - `--seed`: Random seed (default: 42)
 - `--save_dir`: Directory to save demo results (default: 'logs')
 
+Below is a list of configurations (set with `-config`)
+- 'loop': Configuration for 'loop' environment
+  - `-mrp` = 'loop'
+  - `-d` = 5
+- 'boyan': Configuration for 'boyan' environment
+  - `-mrp` = 'boyan'
+  - `-d` = 4
+
 By default, the result is saved to `./logs/demo`.
 
 ### Theory Verification
-We provide a script to numerically verify our theories.
+We provide a script to numerically verify our theories for transformers.
 The script computes the absolute errors in log scale between the value predictions by the linear transformers and the direct implementations of their corresponding in-context algorithms.
 <p align="center">
   <img src="figs/log_error.png" alt="Theory Verification" height="150"/>
