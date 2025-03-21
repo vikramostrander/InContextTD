@@ -33,9 +33,7 @@ if __name__ == '__main__':
                         help='custom MRP presets', default='none', 
                         choices=['none', 'loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, nargs='+',
-                        help='model type(s)', default=['none'], choices=['none', 'tf', 'mamba', 's4'])
-    parser.add_argument('--activation', type=str,
-                        help='activation function for transformers', default='identity')
+                        help='model type(s)', default=['none'], choices=['none', 'tf', 'tf_lin', 'mamba', 's4'])
     parser.add_argument('-path', '--model_path', type=str, nargs='+',
                         help='path(s) to trained model', default=['none'])
     parser.add_argument('--lr', type=float,
@@ -96,9 +94,13 @@ if __name__ == '__main__':
                 raise Exception("error: trained model required for s4")
             model = S4SSM(d, l, device=device, mode='sequential').to(device)
             model.load_state_dict(torch.load(model_path))
+        elif model_name == 'tf_lin':
+            device = torch.device('cpu')
+            model = Transformer(d, args.max_ctxt_len, l, activation='identity', mode='sequential')
+            model.load_state_dict(torch.load(model_path))
         elif model_name == 'tf':
             device = torch.device('cpu')
-            model = Transformer(d, args.max_ctxt_len, l, activation=args.activation, mode='sequential')
+            model = Transformer(d, args.max_ctxt_len, l, activation='softmax', mode='sequential')
             model.load_state_dict(torch.load(model_path))
         else:
             model = None    # defaults to td update
@@ -119,7 +121,7 @@ if __name__ == '__main__':
                 prompt.reset()
                 if model is not None:
                     ctxt = prompt.context()
-                    if model_name == 'tf':
+                    if model_name in {'tf', 'tf_lin'}:
                         ctxt = torch.tensor(np.pad(ctxt, ((0,0),(args.max_ctxt_len-n,0)), 
                                                    mode='constant', constant_values=0))
                     v = model.fit_value_func(
@@ -143,7 +145,7 @@ if __name__ == '__main__':
 
     plt.style.use(['science', 'bright', 'no-latex'])
     fig = plt.figure()
-    colors = {'tf': 'b', 'mamba': 'r', 's4': 'g'}
+    colors = {'tf': 'b', 'tf_lin': 'c', 'mamba': 'r', 's4': 'g'}
     for model_name in args.model_name:
         mean, ste = results[model_name]
         plt.plot(context_lengths, mean, 
