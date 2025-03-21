@@ -24,6 +24,8 @@ if __name__ == '__main__':
                         help='minimum possible number of states', default=5)
     parser.add_argument('-smax', '--max_state_num', type=int,
                         help='maximum possible number of states', default=15)
+    parser.add_argument('--gamma', type=float,
+                        help='discount factor', default=0.9)
     parser.add_argument('-mrp', '--mrp_env', type=str,
                         help='MRP environment', default='loop', 
                         choices=['loop', 'boyan'])
@@ -31,13 +33,11 @@ if __name__ == '__main__':
                         help='custom MRP presets', default='none', 
                         choices=['none', 'loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, nargs='+',
-                        help='model type(s)', default=['none'], choices=['tf', 'mamba', 's4'])
+                        help='model type(s)', default=['none'], choices=['none', 'tf', 'mamba', 's4'])
     parser.add_argument('--activation', type=str,
                         help='activation function for transformers', default='identity')
     parser.add_argument('-path', '--model_path', type=str, nargs='+',
-                        help='path to trained model', default=['none'])
-    parser.add_argument('--gamma', type=float,
-                        help='discount factor', default=0.9)
+                        help='path(s) to trained model', default=['none'])
     parser.add_argument('--lr', type=float,
                         help='TD learning rate', default=0.2)
     parser.add_argument('--n_mrps', type=int,

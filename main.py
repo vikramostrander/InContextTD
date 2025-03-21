@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--representable', action='store_true',
                         help='sample a random true weight vector, such that the value function is fully representable by the features')
     parser.add_argument('--n_mrps', type=int,
-                        help='total number of MRPs for training', default=5_000)
+                        help='total number of MRPs for training', default=4_000)
     parser.add_argument('--batch_size', type=int,
                         help='mini batch size', default=64)
     parser.add_argument('--n_batch_per_mrp', type=int,
@@ -67,8 +67,9 @@ if __name__ == '__main__':
                         help='learning rate', default=0.001)
     parser.add_argument('--weight_decay', type=float,
                         help='regularization term', default=1e-6)
-    parser.add_argument('--loss', type=str, default='mstde',
-                        help='loss options are mstde or msve_true or msve_mc')
+    parser.add_argument('--loss', type=str, 
+                        help='loss options', default='mstde', 
+                        choices=['mstde', 'msve_true', 'msve_mc'])
     parser.add_argument('--log_interval', type=int,
                         help='logging interval', default=10)
     parser.add_argument('--seed', type=int, nargs='+',
@@ -123,6 +124,7 @@ if __name__ == '__main__':
             args.no_parallel = True
         if args.mrp_config == 'boyan':
             args.mrp_env = 'boyan'
+            args.dim_feature = 4
             args.num_states = 10
             args.context_length = 30
             args.n_mrps = 4000
