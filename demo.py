@@ -146,10 +146,11 @@ if __name__ == '__main__':
     plt.style.use(['science', 'bright', 'no-latex'])
     fig = plt.figure()
     colors = {'tf': 'b', 'tf_lin': 'c', 'mamba': 'r', 's4': 'g'}
+    names = {'tf': 'TF', 'tf_lin': 'Linear TF', 'mamba': 'Mamba', 's4': 'S4'}
     for model_name in args.model_name:
         mean, ste = results[model_name]
         plt.plot(context_lengths, mean, 
-                 label=model_name, color=colors[model_name])
+                 label=names[model_name], color=colors[model_name])
         plt.fill_between(context_lengths,
                          np.clip(mean - ste, a_min=0, a_max=None),
                          mean + ste,
