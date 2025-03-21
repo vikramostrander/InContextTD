@@ -8,7 +8,7 @@ import torch
 from tqdm import tqdm
 
 from experiment.prompt import Feature, MRPPrompt
-from experiment.model import MambaSSM, S4SSM
+from experiment.model import Transformer, S4SSM
 from MRP.loop import Loop
 from MRP.boyan import BoyanChain
 from utils import compute_msve, set_seed
@@ -31,9 +31,11 @@ if __name__ == '__main__':
                         help='custom MRP presets', default='none', 
                         choices=['none', 'loop', 'boyan'])
     parser.add_argument('-model', '--model_name', type=str, nargs='+',
-                        help='model type(s)', default=['tf'], choices=['tf', 'mamba', 's4'])
+                        help='model type(s)', default=['none'], choices=['tf', 'mamba', 's4'])
+    parser.add_argument('--activation', type=str,
+                        help='activation function for transformers', default='identity')
     parser.add_argument('-path', '--model_path', type=str, nargs='+',
-                        help='path to trained model (should be none for tf)', default=['none'])
+                        help='path to trained model', default=['none'])
     parser.add_argument('--gamma', type=float,
                         help='discount factor', default=0.9)
     parser.add_argument('--lr', type=float,
@@ -92,10 +94,14 @@ if __name__ == '__main__':
             device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
             if not model_path:
                 raise Exception("error: trained model required for s4")
-            model = S4SSM(d, 3, device=device, mode='sequential').to(device)
+            model = S4SSM(d, l, device=device, mode='sequential').to(device)
+            model.load_state_dict(torch.load(model_path))
+        elif model_name == 'tf':
+            device = torch.device('cpu')
+            model = Transformer(d, args.max_ctxt_len, l, activation=args.activation, mode='sequential')
             model.load_state_dict(torch.load(model_path))
         else:
-            model = None    # tf by default
+            model = None    # defaults to td update
 
         all_msves = []  # (n_mrps, len(context_lengths))
         for _ in tqdm(range(n_mrps)):
@@ -113,6 +119,9 @@ if __name__ == '__main__':
                 prompt.reset()
                 if model is not None:
                     ctxt = prompt.context()
+                    if model_name == 'tf':
+                        ctxt = torch.tensor(np.pad(ctxt, ((0,0),(args.max_ctxt_len-n,0)), 
+                                                   mode='constant', constant_values=0))
                     v = model.fit_value_func(
                         ctxt.to(device), 
                         torch.from_numpy(feature.phi).to(device)

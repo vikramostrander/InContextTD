@@ -103,7 +103,7 @@ if __name__ == '__main__':
             args.mrp_env = 'loop'
             args.dim_feature = 5
             args.num_states = 10
-            args.context_length = 30
+            args.context_length = 40
             args.mode = 'sequential'
             args.representable = True
             args.n_mrps = 4000
@@ -114,7 +114,7 @@ if __name__ == '__main__':
             args.mrp_env = 'boyan'
             args.dim_feature = 4
             args.num_states = 10
-            args.context_length = 30
+            args.context_length = 40
             args.mode = 'sequential'
             args.representable = True
             args.n_mrps = 4000
