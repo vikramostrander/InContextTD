@@ -150,6 +150,7 @@ Below is a list of the command-line arguments available for `demo.py`:
 - `--ctxt_step`: Context length increment step (default: 2)
 - `--seed`: Random seed (default: 42)
 - `--save_dir`: Directory to save demo results (default: 'logs')
+- `--filename`: Filename of generated figure (default: 'msve_vs_context_length')
 
 Below is a list of configurations (set with `-config`)
 - 'loop': Configuration for 'loop' environment
