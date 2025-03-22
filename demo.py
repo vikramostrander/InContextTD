@@ -59,8 +59,6 @@ if __name__ == '__main__':
  
     os.makedirs(save_path, exist_ok=True)
 
-    set_seed(args.seed)
-
     d = args.dim_feature
     l = args.num_layers
     min_s = args.min_state_num
@@ -83,6 +81,7 @@ if __name__ == '__main__':
     assert len(args.model_name) == len(args.model_path)
     results = dict()
     for model_name, model_path in zip(args.model_name, args.model_path):
+        set_seed(args.seed)
         if model_name == 'mamba':
             if not torch.cuda.is_available():
                 raise Exception("error: cuda not found, required for mamba")
