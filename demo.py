@@ -50,6 +50,8 @@ if __name__ == '__main__':
                         help='random seed', default=42)
     parser.add_argument('--save_dir', type=str,
                         help='directory to save demo result', default='logs')
+    parser.add_argument('--filename', type=str,
+                        help='filename of generated figure', default='msve_vs_context_length')
 
     args: Namespace = parser.parse_args()
 
@@ -160,6 +162,6 @@ if __name__ == '__main__':
     plt.legend()
     plt.ylim(ymin=0)
     plt.grid(True)
-    fig_path = os.path.join(save_path, 'msve_vs_context_length.pdf')
+    fig_path = os.path.join(save_path, args.filename + '.pdf')
     plt.savefig(fig_path, dpi=300, format='pdf')
     plt.close(fig)
