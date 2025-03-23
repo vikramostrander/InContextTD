@@ -188,8 +188,12 @@ To run all the experiments from the paper in one go, execute the following shell
 ```bash
 ./run.sh
 ```
+We do not recommend running all the experiments for mamba at once, however all the experiments are contained in the following shell script:
+```bash
+./run_mamba.sh
+```
 ### Test
-To test run the experiments in small scale, execute the following shell script:
+To test run the experiments for transformers in small scale, execute the following shell script:
 ```bash
 ./test.sh
 ```
