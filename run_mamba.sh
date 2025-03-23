@@ -1,24 +1,24 @@
 ####################################################### demo ####################################################### 
 
 # generate models for loop
-python3 main.py -config=demo_lp -model=mamba --save_dir=./logs/demo --suffix=demo_lp_mamba_l1 -l=1  # 1 layer mamba for loop
-python3 main.py -config=demo_lp -model=mamba --save_dir=./logs/demo --suffix=demo_lp_mamba_l3 -l=3  # 3 layer mamba for loop
-python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_lin_l1 -l=1    # 1 layer linear tf for loop
-python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_lin_l3 -l=3    # 3 layer linear tf for loop
-python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_act_l1 -l=1 --activation=softmax   # 1 layer nonlinear tf for loop
-python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_act_l3 -l=3 --activation=softmax   # 3 layer nonlinear tf for loop
-python3 main.py -config=demo_lp -model=s4 --save_dir=./logs/demo --suffix=demo_lp_s4_l1 -l=1    # 1 layer s4 for loop
-python3 main.py -config=demo_lp -model=s4 --save_dir=./logs/demo --suffix=demo_lp_s4_l3 -l=3    # 3 layer s4 for loop
+python3 main.py -config=demo_lp -model=mamba --save_dir=./logs/demo --suffix=demo_lp_mamba_l1 -l=1
+python3 main.py -config=demo_lp -model=mamba --save_dir=./logs/demo --suffix=demo_lp_mamba_l3 -l=3
+python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_lin_l1 -l=1
+python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_lin_l3 -l=3
+python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_act_l1 -l=1 --activation=softmax
+python3 main.py -config=demo_lp -model=tf --save_dir=./logs/demo --suffix=demo_lp_tf_act_l3 -l=3 --activation=softmax
+python3 main.py -config=demo_lp -model=s4 --save_dir=./logs/demo --suffix=demo_lp_s4_l1 -l=1
+python3 main.py -config=demo_lp -model=s4 --save_dir=./logs/demo --suffix=demo_lp_s4_l3 -l=3
 
 # generate models for boyan chain
-python3 main.py -config=demo_bc -model=mamba --save_dir=./logs/demo --suffix=demo_bc_mamba_l1 -l=1  # 1 layer mamba for boyan chain
-python3 main.py -config=demo_bc -model=mamba --save_dir=./logs/demo --suffix=demo_bc_mamba_l3 -l=3  # 3 layer mamba for boyan chain
-python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_lin_l1 -l=1    # 1 layer linear tf for boyan chain
-python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_lin_l3 -l=3    # 3 layer linear tf for boyan chain
-python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_act_l1 -l=1 --activation=softmax   # 1 layer nonlinear tf for boyan chain
-python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_act_l3 -l=3 --activation=softmax   # 3 layer nonlinear tf for boyan chain
-python3 main.py -config=demo_bc -model=s4 --save_dir=./logs/demo --suffix=demo_bc_s4_l1 -l=1    # 1 layer s4 for boyan chain
-python3 main.py -config=demo_bc -model=s4 --save_dir=./logs/demo --suffix=demo_bc_s4_l3 -l=3    # 3 layer s4 for boyan chain
+python3 main.py -config=demo_bc -model=mamba --save_dir=./logs/demo --suffix=demo_bc_mamba_l1 -l=1
+python3 main.py -config=demo_bc -model=mamba --save_dir=./logs/demo --suffix=demo_bc_mamba_l3 -l=3
+python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_lin_l1 -l=1
+python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_lin_l3 -l=3
+python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_act_l1 -l=1 --activation=softmax
+python3 main.py -config=demo_bc -model=tf --save_dir=./logs/demo --suffix=demo_bc_tf_act_l3 -l=3 --activation=softmax
+python3 main.py -config=demo_bc -model=s4 --save_dir=./logs/demo --suffix=demo_bc_s4_l1 -l=1
+python3 main.py -config=demo_bc -model=s4 --save_dir=./logs/demo --suffix=demo_bc_s4_l3 -l=3
 
 # run demo script
 python3 demo.py -config=loop -l=1 -model mamba tf_lin tf s4 -path logs/demo/demo_lp_mamba_l1/seed_0/model.pth logs/demo/demo_lp_tf_lin_l1/seed_0/state_dict.pth logs/demo/demo_lp_tf_act_l1/seed_0/state_dict.pth logs/demo/demo_lp_s4_l1/seed_0/state_dict.pth --filename=demo_lp_l1
