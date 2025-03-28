@@ -12,16 +12,27 @@ class CartPoleEnvironment(MRP):
 
     def __init__(self, dim, bins_per_feature: int = 2, gamma: float = 0.9, weight: np.ndarray = None, X: np.ndarray = None):
 
-        self.gravity = 9.8
-        self.masscart = 1.0
-        self.masspole = 0.1
+        self.gravity = np.random.uniform(low=7, high=12) # gravity is uniformly distributed
+        self.masscart = np.random.uniform(low=0.5, high=1.5) # masscart is uniformly distributed
+        self.masspole = np.random.uniform(low=0.05, high=0.15) # masspole is uniformly distributed
         self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.5  # actually half the pole's length
+        self.length = np.random.uniform(low=0.5, high=1.5)  # actually half the pole's length
         self.polemass_length = (self.masspole * self.length)
-        self.force_mag = 10.0
-        self.tau = 0.02  # seconds between state updates
+        self.force_mag = np.random.uniform(low=5, high=15) # force_mag is uniformly distributed
+        self.tau = np.random.uniform(low=0.01, high=0.05) # tau is uniformly distributed
         self.kinematics_integrator = 'euler'
         self.epsilon = np.random.rand() # epsilon controls the action distribution
+
+        # self.gravity = 9.8
+        # self.masscart = 1.0
+        # self.masspole = 0.1
+        # self.total_mass = (self.masspole + self.masscart)
+        # self.length = 0.5  # actually half the pole's length
+        # self.polemass_length = (self.masspole * self.length)
+        # self.force_mag = 10.0
+        # self.tau = 0.02  # seconds between state updates
+        # self.kinematics_integrator = 'euler'
+        # self.epsilon = np.random.rand() # epsilon controls the action distribution
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
@@ -152,6 +163,14 @@ class CartPoleEnvironment(MRP):
     
     def copy(self) -> 'CartPoleEnvironment':
         cp = CartPoleEnvironment(self.dim, self.s_bins, self.gamma, self.w, self.X)
+        cp.gravity = self.gravity
+        cp.masscart = self.masscart
+        cp.masspole = self.masspole
+        cp.total_mass = self.total_mass
+        cp.length = self.length
+        cp.polemass_length = self.polemass_length
+        cp.force_mag = self.force_mag
+        cp.tau = self.tau
         cp.epsilon = self.epsilon
         cp.rewards = self.rewards.copy()
         cp.P = self.P.copy()

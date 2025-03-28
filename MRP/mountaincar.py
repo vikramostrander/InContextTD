@@ -11,6 +11,9 @@ class MountainCarEnvironment(MRP):
 
     def __init__(self, dim, bins_per_feature: int = 2, gamma: float = 0.9, weight: np.ndarray = None, X: np.ndarray = None):
 
+        self.gravity = np.random.uniform(low=0.002, high=0.003) # gravity is uniformly distributed
+        self.force = np.random.uniform(low=0.0005, high=0.0015) # force is uniformly distributed 
+
         # Position bounds
         self._pos_lims = [-1.2, 0.5]
         # Speed bounds
@@ -68,7 +71,7 @@ class MountainCarEnvironment(MRP):
         x, x_dot = state
         action = np.random.choice(self._all_actions, p=self.action_dist)
 
-        x_dot_next = x_dot + 0.001 * action - 0.0025 * np.cos(3 * x)
+        x_dot_next = x_dot + self.force * action - self.gravity * np.cos(3 * x)
         x_dot_next = np.clip(x_dot_next, a_min=self._vel_lims[0], a_max=self._vel_lims[1])
 
         x_next = x + x_dot_next
@@ -121,6 +124,8 @@ class MountainCarEnvironment(MRP):
     
     def copy(self) -> 'MountainCarEnvironment':
         mc = MountainCarEnvironment(self.dim, self.s_bins, self.gamma, self.w, self.X)
+        mc.gravity = self.gravity
+        mc.force = self.force
         mc.action_dist = self.action_dist.copy()
         mc.rewards = self.rewards.copy()
         mc.P = self.P.copy()
