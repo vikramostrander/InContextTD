@@ -156,7 +156,7 @@ if __name__ == '__main__':
                          np.clip(mean - ste, a_min=0, a_max=None),
                          mean + ste,
                          color=colors[model_name], alpha=0.2)
-    plt.xlabel('Context Length (t)')
+    plt.xlabel('Context Length (n)')
     plt.ylabel('MSVE', rotation=0, labelpad=30)
     plt.legend()
     plt.ylim(ymin=0)
