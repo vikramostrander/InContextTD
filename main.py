@@ -47,7 +47,7 @@ if __name__ == '__main__':
                         choices=['loop', 'boyan', 'cartpole', 'mountaincar'])
     parser.add_argument('-config', '--mrp_config', type=str,
                         help='custom MRP presets', default='none', 
-                        choices=['none', 'demo_lp', 'demo_bc', 'boyan', 'cartpole', 'mountaincar'])
+                        choices=['none', 'demo', 'boyan', 'cartpole', 'mountaincar'])
     parser.add_argument('-model', '--model_name', type=str, 
                         help='model type', default='tf', choices=['tf', 'mamba', 's4'])
     parser.add_argument('--mode', type=str,
@@ -100,20 +100,9 @@ if __name__ == '__main__':
         save_dir = os.path.join(save_dir, args.suffix)
 
     if args.mrp_config != 'none':
-        if args.mrp_config == 'demo_lp':
+        if args.mrp_config == 'demo':
             args.mrp_env = 'loop'
             args.dim_feature = 5
-            args.num_states = 10
-            args.context_length = 40
-            args.mode = 'sequential'
-            args.representable = True
-            args.n_mrps = 4000
-            args.seed = [0]
-            args.save_model = True
-            args.no_parallel = True
-        if args.mrp_config == 'demo_bc':
-            args.mrp_env = 'boyan'
-            args.dim_feature = 4
             args.num_states = 10
             args.context_length = 40
             args.mode = 'sequential'

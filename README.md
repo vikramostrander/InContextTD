@@ -56,7 +56,7 @@ Below is a list of the command-line arguments available for `main.py`:
 - `-l`, `--num_layers`: Number of layers (default: 3)
 - `--gamma`: Discount factor (default: 0.9)
 - `-mrp`, `--mrp_env`: MRP environment (choices: ['loop', 'boyan', 'cartpole', 'mountaincar'], default: 'boyan')
-- `-config`, `--mrp_config`: Custom MRP presets (choices: ['none', 'demo_lp', 'demo_bc', 'boyan', 'cartpole', 'mountaincar'], default: 'none')
+- `-config`, `--mrp_config`: Custom MRP presets (choices: ['none', 'demo', 'boyan', 'cartpole', 'mountaincar'], default: 'none')
 - `-model`, `--model_name`: Model type (choices: ['tf', 'mamba', 's4'], default='tf')
 - `--mode`: Training mode auto-regressive or sequential (choices: ['auto', 'sequential'], default: 'auto')
 - `--activation`: Activation function for transformers (choices: ['identity', 'softmax', 'relu'], default: 'identity')
@@ -77,20 +77,9 @@ Below is a list of the command-line arguments available for `main.py`:
 - `-v`, `--verbose`: Flag to print detailed training progress
 
 Below is a list of configurations (set with `-config`)
-- 'demo_lp': Generate a model in the 'loop' environment for demo script
+- 'demo': Generate a model for demo script
   - `-mrp` = 'loop'
   - `-d` = 5
-  - `-s` = 10
-  - `-n` = 40
-  - `--mode` = 'sequential'
-  - `--representable`
-  - `--n_mrps` = 4000
-  - `--seed` = [0]
-  - `--save_model`
-  - `--no_parallel`
-- 'demo_bc': Generate a model in the 'boyan' environment for demo script
-  - `-mrp` = 'boyan'
-  - `-d` = 4
   - `-s` = 10
   - `-n` = 40
   - `--mode` = 'sequential'
@@ -139,8 +128,6 @@ Below is a list of the command-line arguments available for `demo.py`:
 - `-smin`, `--min_state_num`: Minimum possible state number of the randomly generated MRP (default: 5)
 - `-smax`, `--max_state_num`: Maximum possible state number of the randomly generated MRP (default: 15)
 - `--gamma`: Discount factor (default: 0.9)
-- `-mrp`, `--mrp_env`: MRP environment (choices: ['loop', 'boyan'], default: 'loop')
-- `-config`, `--mrp_config`: Custom MRP presets (choices: ['none', 'loop', 'boyan'], default: 'none')
 - `-model`, `--model_name`: Model type(s) (choices: ['none', 'tf', 'tf_lin', 'mamba', 's4'], default=['none'])
 - `-path`, `--model_path`: Path(s) to trained model (default=['none'])
 - `--lr`: learning rate of the implemented in-context TD algorithm (default: 0.2)
@@ -151,14 +138,6 @@ Below is a list of the command-line arguments available for `demo.py`:
 - `--seed`: Random seed (default: 42)
 - `--save_dir`: Directory to save demo results (default: 'logs')
 - `--filename`: Filename of generated figure (default: 'msve_vs_context_length')
-
-Below is a list of configurations (set with `-config`)
-- 'loop': Configuration for 'loop' environment
-  - `-mrp` = 'loop'
-  - `-d` = 5
-- 'boyan': Configuration for 'boyan' environment
-  - `-mrp` = 'boyan'
-  - `-d` = 4
 
 By default, the result is saved to `./logs/demo`.
 
