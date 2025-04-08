@@ -161,10 +161,12 @@ def plot_error_data(data_dirs: str,
     ax2 = ax1.twinx()
     plt.minorticks_off()
     ax2.set_ylabel('Value Difference')
-    if hyperparams['sample_weight']:
-        ax2.set_ylim(0, 3.0)
-    else:
-        ax2.set_ylim(0, 0.3)
+    # if hyperparams['mrp_class'] == 'boyan':
+    #     if hyperparams['sample_weight']:
+    #         ax2.set_ylim(0, 3.0)
+    #     else:
+    #         ax2.set_ylim(0, 0.3)
+    ax2.set_ylim(0, 1.1)
     c, = ax2.plot(xs, mean_vf_sim, label='VD', color=sns.color_palette()[1])
     ax2.fill_between(xs, mean_vf_sim - stde_vf_sim,
                      mean_vf_sim + stde_vf_sim, lw=0, alpha=0.3, color=sns.color_palette()[1])
